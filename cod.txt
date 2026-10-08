@@ -921,6 +921,49 @@ function doGet() {
 /**
  * Сбор сводной статистики и задач тех. оборудования по всем барам
  */
+/**
+ * Обработчик POST-запросов от внешнего фронтенда.
+ */
+function doPost(e) {
+  try {
+    var params = JSON.parse(e.postData.contents);
+    var action = params.action;
+    var args = params.args || [];
+
+    // Белый список разрешенных публичных методов
+    const PUBLIC_METHODS = {
+      processForm: processForm,
+      getBars: getBars,
+      getBarTasks: getBarTasks,
+      addTaskComment: addTaskComment,
+      takeTaskInWork: takeTaskInWork,
+      adminUpdateTask: adminUpdateTask,
+      adminDeleteTask: adminDeleteTask,
+      adminCloseTask: adminCloseTask,
+      addResultToTask: addResultToTask,
+      getStatisticsData: getStatisticsData,
+      getTechEquipmentDashboardData: getTechEquipmentDashboardData,
+
+      getRequesterAuthToken: getRequesterAuthToken,
+      uploadSingleFile: uploadSingleFile,
+      checkAdminPassword: checkAdminPassword
+    };
+
+    // Запрещаем вызов функций не из списка
+    if (!PUBLIC_METHODS[action]) {
+      throw new Error("Функция не найдена или доступ запрещен: " + action);
+    }
+
+    var result = PUBLIC_METHODS[action].apply(this, args);
+
+    return ContentService.createTextOutput(JSON.stringify({ result: result }))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({ error: err.toString() }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
 function getTechEquipmentDashboardData(region, authToken) {
   authRequire_(authToken, ['admin', 'requester']);
   const tasks = getBarTasks('ALL', region, authToken).tasks || [];

@@ -413,7 +413,7 @@
         <span id="userAccountRoleBadge" onclick="promptAdminPassword()" style="background: rgba(10, 132, 255, 0.15); color: var(--accent-color); border: 1px solid var(--accent-color); padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer;">Пользователь</span>
       </div>
 
-      <a href="<?= instructionUrl ?>" target="_blank" class="btn-instruction">
+      <a href="#" target="_blank" class="btn-instruction" id="instructionLink">
         📖 Инструкция по подаче заявок
       </a>
       <h1>Выберите регион</h1>
@@ -538,8 +538,8 @@
               <div>
                 <label>Статус</label>
                 <select id="filterStatus" onchange="applyFilters()">
-                  <option value="all" selected>Все</option>
-                  <option value="active">❌ Активные</option>
+                  <option value="all">Все</option>
+                  <option value="active" selected>❌ Активные</option>
                   <option value="inwork">🟡 В работе</option>
                   <option value="completed">✅ Готово</option>
                   <option value="overdue">⏰ Просрочено</option>
@@ -824,6 +824,44 @@
   </div>
 
   <script>
+
+    const APPS_SCRIPT_URL = "YOUR_APPS_SCRIPT_WEB_APP_URL_HERE";
+    const INSTRUCTION_URL_FALLBACK = "YOUR_INSTRUCTION_URL_HERE";
+
+    const google = {
+      script: {
+        get run() {
+          const state = { successHandler: null, failureHandler: null };
+          return new Proxy(state, {
+            get: function(target, prop) {
+              if (prop === 'withSuccessHandler') return function(cb) { target.successHandler = cb; return this; };
+              if (prop === 'withFailureHandler') return function(cb) { target.failureHandler = cb; return this; };
+              return async function(...args) {
+                try {
+                  const res = await fetch(APPS_SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ action: prop, args: args }),
+                    // Использование text/plain помогает избежать лишних preflight (OPTIONS) CORS запросов
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+                  });
+                  const json = await res.json();
+                  if (json.error) {
+                    if (target.failureHandler) target.failureHandler(json.error);
+                    else console.error(json.error);
+                  } else {
+                    if (target.successHandler) target.successHandler(json.result);
+                  }
+                } catch (err) {
+                  if (target.failureHandler) target.failureHandler(err);
+                  else console.error(err);
+                }
+              };
+            }
+          });
+        }
+      }
+    };
+
     // Начальный пользователь по умолчанию - обычный
     let currentUser = { email: "", isAdmin: false, role: "requester" };
     let currentAuthToken = "";
@@ -843,6 +881,8 @@
     const TASKS_PAGE_SIZE = 20;
 
     window.addEventListener('DOMContentLoaded', () => {
+      const instLink = document.getElementById('instructionLink');
+      if (instLink) instLink.href = INSTRUCTION_URL_FALLBACK;
       document.getElementById('regionScreen').style.display = 'block';
       document.getElementById('mainScreen').style.display = 'none';
       document.getElementById('fileInput').addEventListener('change', handleFileSelect);
@@ -1473,7 +1513,7 @@
       document.getElementById('historyLoader').style.display = 'block';
       document.getElementById('filterDateFrom').value = '';
       document.getElementById('filterDateTo').value = '';
-      document.getElementById('filterStatus').value = 'all';
+      document.getElementById('filterStatus').value = 'active';
       document.getElementById('filterType').value = 'all';
       document.getElementById('filterInitiator').value = '';
       resultFilesCache = {};
