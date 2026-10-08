@@ -538,8 +538,8 @@
               <div>
                 <label>Статус</label>
                 <select id="filterStatus" onchange="applyFilters()">
-                  <option value="all">Все</option>
-                  <option value="active" selected>❌ Активные</option>
+                  <option value="all" selected>Все</option>
+                  <option value="active">❌ Активные</option>
                   <option value="inwork">🟡 В работе</option>
                   <option value="completed">✅ Готово</option>
                   <option value="overdue">⏰ Просрочено</option>
@@ -1473,7 +1473,7 @@
       document.getElementById('historyLoader').style.display = 'block';
       document.getElementById('filterDateFrom').value = '';
       document.getElementById('filterDateTo').value = '';
-      document.getElementById('filterStatus').value = 'active';
+      document.getElementById('filterStatus').value = 'all';
       document.getElementById('filterType').value = 'all';
       document.getElementById('filterInitiator').value = '';
       resultFilesCache = {};

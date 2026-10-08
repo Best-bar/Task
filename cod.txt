@@ -555,7 +555,7 @@ function assignRegionsToExistingTasks_() {
       }
     });
 
-    if (values.length) sheet.getRange(2, 11, values.length, 2).setValues(values);
+    if (values.length) sheet.getRange(2, 11, values.length, 2).setValues(values); // This is perfectly fine, it writes BOTH columns K and L back.
     clearTasksCache();
     return { success: true, updated: updated, message: 'Регионы назначены для существующих задач.' };
   } catch (e) {
@@ -651,6 +651,9 @@ function getBarTasks(barName, region, authToken) {
     if (barName !== 'ALL') tasks = tasks.filter(t => t.barName === barName);
     if (region) tasks = tasks.filter(t => {
       var taskRegion = String(t.region || '').toLowerCase();
+      if (!taskRegion && t.barName) {
+        taskRegion = getBarRegion_(t.barName).toLowerCase();
+      }
       var requestedRegion = String(region).toLowerCase();
       return taskRegion === requestedRegion;
     });
@@ -938,10 +941,10 @@ function getTechEquipmentDashboardData(region, authToken) {
 
 function getCacheVersion_() {
   const props = PropertiesService.getScriptProperties();
-  let version = props.getProperty('TASKS_CACHE_VERSION');
+  let version = props.getProperty('TASKS_CACHE_VERSION_2');
   if (!version) {
     version = new Date().getTime().toString();
-    props.setProperty('TASKS_CACHE_VERSION', version);
+    props.setProperty('TASKS_CACHE_VERSION_2', version);
   }
   return version;
 }
@@ -949,7 +952,7 @@ function getCacheVersion_() {
 function clearTasksCache(region) {
   try {
     const props = PropertiesService.getScriptProperties();
-    props.setProperty('TASKS_CACHE_VERSION', new Date().getTime().toString());
+    props.setProperty('TASKS_CACHE_VERSION_2', new Date().getTime().toString());
     const cache = CacheService.getScriptCache();
     cache.remove('stats_data_master');
     cache.remove('tech_dashboard_data_master');
