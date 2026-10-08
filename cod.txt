@@ -963,12 +963,6 @@ function sendTelegramNotification_(payload) {
   try {
     if (!TELEGRAM_BOT_TOKEN) return;
 
-    // ПРОВЕРКА РЕГИОНА: Если заявка подана из регионов, НЕ отправляем уведомление в текущий бот
-    if (payload && (payload.region === "regions" || payload.region === "Регионы")) {
-      Logger.log("Уведомление пропущено: заявка из регионов.");
-      return;
-    }
-
     let targetChatId = "";
 
     const reqTypeLower = (payload.requestType || "").toLowerCase();
@@ -976,6 +970,10 @@ function sendTelegramNotification_(payload) {
       targetChatId = TECH_EQUIPMENT_SPECIALIST_CHAT_ID;
     } else {
       targetChatId = BAR_TELEGRAM_RECIPIENTS[payload.barName] || BAR_TELEGRAM_RECIPIENTS["default"];
+    }
+
+    if (!targetChatId) {
+      targetChatId = TECH_EQUIPMENT_SPECIALIST_CHAT_ID;
     }
 
     if (!targetChatId) return;
