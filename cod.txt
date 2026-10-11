@@ -819,7 +819,12 @@ function adminUpdateTask(taskRef, updates, filesData, authToken) {
       if (addedUrls.length) photos = photos ? photos + ', ' + addedUrls.join(', ') : addedUrls.join(', ');
     }
 
-    const newRow = [oldRow[0], updates.requestType || oldRow[1], updates.initiator || oldRow[2], finalTaskText, deadlineDate, photos, oldRow[6], oldRow[7], oldRow[8], oldRow[9], targetBarName, updates.region || oldRow[11] || taskRef.region || ''];
+    let comment = oldRow[6];
+    if (updates.commentText !== undefined) {
+      comment = updates.commentText;
+    }
+
+    const newRow = [oldRow[0], updates.requestType || oldRow[1], updates.initiator || oldRow[2], finalTaskText, deadlineDate, photos, comment, oldRow[7], oldRow[8], oldRow[9], targetBarName, updates.region || oldRow[11] || taskRef.region || ''];
     sheet.getRange(taskRef.rowIdx, 1, 1, 12).setValues([newRow]);
     clearTasksCache();
     return { success:true, region:newRow[11], barName:targetBarName, rowIdx:taskRef.rowIdx };
