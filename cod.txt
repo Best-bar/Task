@@ -1,496 +1,115 @@
+// ==========================================
+// НАСТРОЙКИ ТАБЛИЦ И ДИСКА
+// ==========================================
+// КРИТИЧЕСКИ ВАЖНО: Укажите здесь ID папки, куда будут сохраняться ВСЕ файлы
+var TARGET_FOLDER_ID = "1UFa8sB_8QNHqwv86F7bDndG6Tlz09_2f";
 
-// ==========================================================
-// АВТОРИЗАЦИЯ ПОЛЬЗОВАТЕЛЕЙ
-// ==========================================================
-const AUTH_USERS_PROPERTY = 'AUTH_USERS';
-const AUTH_SECRET_PROPERTY = 'AUTH_SECRET';
-const AUTH_TOKEN_DAYS = 365;
+// Укажите ID Google Таблицы для РЕГИОНОВ
+var REGIONS_SPREADSHEET_ID = "15-P4_f2Y3ta4-EqYvPyKtTvsuTiOQpZ3nl91r5p7lPs";
 
-function bytesToHex_(bytes) {
-  return bytes.map(function(b) {
-    var v = b < 0 ? b + 256 : b;
-    return ('0' + v.toString(16)).slice(-2);
-  }).join('');
-}
-
-function getAuthSecret_() {
-  var props = PropertiesService.getScriptProperties();
-  var secret = props.getProperty(AUTH_SECRET_PROPERTY);
-  if (!secret) {
-    secret = Utilities.getUuid() + ':' + Utilities.getUuid() + ':' + new Date().getTime();
-    props.setProperty(AUTH_SECRET_PROPERTY, secret);
-  }
-  return secret;
-}
-
-function hashPassword_(password, salt) {
-  var bytes = Utilities.computeDigest(
-    Utilities.DigestAlgorithm.SHA_256,
-    String(password) + '|' + String(salt),
-    Utilities.Charset.UTF_8
-  );
-  return bytesToHex_(bytes);
-}
-
-function getAuthUsers_() {
-  var raw = PropertiesService.getScriptProperties().getProperty(AUTH_USERS_PROPERTY);
-  if (!raw) return [];
-  try {
-    var parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch (e) {
-    Logger.log('Ошибка чтения AUTH_USERS: ' + e.toString());
-    return [];
-  }
-}
-
-// Запустите эту функцию вручную из редактора Apps Script после замены паролей.
-function setupAuthorization() {
-  setAuthUser_('admin', 'admin777', 'admin', 'Администратор');
-  setAuthUser_('requester', 'CHANGE_REQUESTER_PASSWORD', 'requester', 'Подающий заявку');
-
-  getAuthSecret_();
-  Logger.log('Авторизация настроена. Используйте свои логины и пароли.');
-}
-
-// Вспомогательная функция настройки пользователя. Выполняется только из редактора Apps Script.
-function setAuthUser_(login, password, role, name) {
-  var allowedRoles = ['admin', 'requester'];
-  login = String(login || '').trim().toLowerCase();
-  password = String(password || '');
-  role = String(role || '').trim().toLowerCase();
-  name = String(name || login).trim();
-
-  if (!login || !password) throw new Error('Для пользователя необходимо указать логин и пароль.');
-  if (allowedRoles.indexOf(role) === -1) throw new Error('Недопустимая роль: ' + role);
-
-  var users = getAuthUsers_();
-  var salt = Utilities.getUuid();
-  var user = {
-    login: login,
-    name: name,
-    role: role,
-    salt: salt,
-    passwordHash: hashPassword_(password, salt),
-    enabled: true
-  };
-
-  var replaced = false;
-  for (var i = 0; i < users.length; i++) {
-    if (String(users[i].login || '').toLowerCase() === login) {
-      users[i] = user;
-      replaced = true;
-      break;
-    }
-  }
-  if (!replaced) users.push(user);
-
-  PropertiesService.getScriptProperties().setProperty(AUTH_USERS_PROPERTY, JSON.stringify(users));
-}
-
-function makeAuthToken_(user) {
-  var now = Math.floor(Date.now() / 1000);
-  var payload = {
-    v: 1,
-    login: user.login,
-    name: user.name,
-    role: user.role,
-    iat: now,
-    exp: now + (AUTH_TOKEN_DAYS * 24 * 60 * 60)
-  };
-
-  var payloadText = Utilities.base64EncodeWebSafe(JSON.stringify(payload));
-  var signatureBytes = Utilities.computeHmacSha256Signature(payloadText, getAuthSecret_());
-  var signature = Utilities.base64EncodeWebSafe(signatureBytes);
-  return payloadText + '.' + signature;
-}
-
-function validateAuthToken_(token) {
-  if (!token || typeof token !== 'string') return null;
-
-  try {
-    var parts = token.split('.');
-    if (parts.length !== 2) return null;
-
-    var payloadText = Utilities.newBlob(Utilities.base64DecodeWebSafe(parts[0])).getDataAsString();
-    var payload = JSON.parse(payloadText);
-    if (!payload || payload.v !== 1 || !payload.login || !payload.role || !payload.exp) return null;
-    if (Number(payload.exp) < Math.floor(Date.now() / 1000)) return null;
-
-    var expectedBytes = Utilities.computeHmacSha256Signature(parts[0], getAuthSecret_());
-    var expectedSignature = Utilities.base64EncodeWebSafe(expectedBytes);
-    if (expectedSignature !== parts[1]) return null;
-
-    var users = getAuthUsers_();
-    var user = users.find(function(u) {
-      return String(u.login || '').toLowerCase() === String(payload.login).toLowerCase() && u.enabled !== false;
-    });
-    if (!user) return null;
-    if (String(user.role) !== String(payload.role)) return null;
-
-    return {
-      login: user.login,
-      name: user.name || user.login,
-      role: user.role
-    };
-  } catch (e) {
-    return null;
-  }
-}
-
-function authRequire_(token, allowedRoles) {
-  var user = validateAuthToken_(token);
-  if (!user) throw new Error('Сессия авторизации недействительна или истекла. Войдите в приложение заново.');
-  if (allowedRoles && allowedRoles.indexOf(user.role) === -1) {
-    throw new Error('Недостаточно прав для выполнения этой операции.');
-  }
-  return user;
-}
-
-function authLogin(login, password) {
-  try {
-    login = String(login || '').trim().toLowerCase();
-    password = String(password || '');
-
-    if (!login || !password) {
-      return { success: false, error: 'Введите логин и пароль.' };
-    }
-
-    var users = getAuthUsers_();
-    if (!users.length) {
-      return { success: false, error: 'Авторизация еще не настроена. Запустите setupAuthorization_() в редакторе Apps Script.' };
-    }
-
-    var user = users.find(function(u) {
-      return String(u.login || '').toLowerCase() === login && u.enabled !== false;
-    });
-
-    if (!user || hashPassword_(password, user.salt) !== user.passwordHash) {
-      return { success: false, error: 'Неверный логин или пароль.' };
-    }
-
-    var publicUser = {
-      login: user.login,
-      name: user.name || user.login,
-      role: user.role
-    };
-
-    return {
-      success: true,
-      token: makeAuthToken_(user),
-      user: publicUser
-    };
-  } catch (e) {
-    Logger.log('Ошибка authLogin: ' + e.toString());
-    return { success: false, error: e.toString() };
-  }
-}
-
-function authCheck(token) {
-  var user = validateAuthToken_(token);
-  if (!user) return { success: false };
-  return { success: true, user: user };
-}
+// ID Google Таблицы для МОСКВЫ (если пустая строка — используется текущая привязанная таблица)
+var MOSCOW_SPREADSHEET_ID = "";
 
 // ==========================================
-// НАСТРОЙКИ ТАБЛИЦ, ДИСКА И TELEGRAM
+// НАСТРОЙКИ TELEGRAM
 // ==========================================
-// Все идентификаторы и секреты хранятся в Script Properties,
-// поэтому Code.gs можно безопасно хранить в GitHub.
-function getProjectProperty_(name, fallback) {
-  var value = PropertiesService.getScriptProperties().getProperty(name);
-  return value !== null ? value : (fallback || '');
-}
+// 1. Токен вашего бота от @BotFather
+const TELEGRAM_BOT_TOKEN = PropertiesService.getScriptProperties().getProperty("TELEGRAM_BOT_TOKEN") || ""; // Установите токен в свойствах скрипта
 
-var TARGET_FOLDER_ID = getProjectProperty_('TARGET_FOLDER_ID');
-var TASKS_SPREADSHEET_ID = getProjectProperty_('TASKS_SPREADSHEET_ID');
-var REGIONS_SPREADSHEET_ID = getProjectProperty_('REGIONS_SPREADSHEET_ID');
-var MOSCOW_SPREADSHEET_ID = getProjectProperty_('MOSCOW_SPREADSHEET_ID');
-var TELEGRAM_BOT_TOKEN = getProjectProperty_('TELEGRAM_BOT_TOKEN');
+// 2. Chat ID специалиста по Техническому Оборудованию (получает ВСЕ заявки с типом "Тех оборудование")
+const TECH_EQUIPMENT_SPECIALIST_CHAT_ID = "1451763750";
 
-// ==========================================================
-// ФИКСИРОВАННЫЙ СПИСОК БАРОВ
-// ==========================================================
-// Список больше НЕ читается из названий листов Google Таблицы.
-// Здесь должны находиться все бары приложения.
-var FIXED_BARS = [
-  'РВБ Тверская',
-  'РВБ Таганка',
-  'РВБ Олимп',
-  'РВБ Строгино',
-  'РВБ Можайка',
-  'РВБ Одинцово',
-  'РВБ Зеленоград',
-  'РВБ Авто',
-  'НБ Покровка',
-  'НБ Пятницкая',
-  'Орбита/Шум',
-  'Сплетни МСК',
-  'Евгенич Цветной',
-  'Евгенич Невский',
-  'НБ Литейный'
-];
+// 3. Карта ответственных по барам (для всех остальных типов заявок)
+const BAR_TELEGRAM_RECIPIENTS = {
+  "РВБ Авто": "5269184296", // Замените на реальный Chat ID ответственного за Бар 1
+  "РВБ Строгино": "5269184296", // Замените на реальный Chat ID ответственного за Бар 2
+  "РВБ Таганка": "871724548",
+  "Евгенич Цветной": "871724548",
+  "default": "5460766895" // Запасной Chat ID (укажите ID техника или админа)
+};
 
-// Бары, относящиеся к региону. Все остальные бары автоматически считаются Москвой.
-var REGION_BARS = [
-  'Евгенич Невский',
-  'НБ Литейный'
-];
-
-function getBarRegion_(barName) {
-  var name = String(barName || '').trim().toLowerCase();
-  var isRegion = REGION_BARS.some(function(nameItem) {
-    return String(nameItem || '').trim().toLowerCase() === name;
-  });
-  return isRegion ? 'regions' : 'moscow';
-}
-
-var TASKS_SHEET_NAME = 'Задачи';
-var TASKS_HEADERS = [
-  'Дата', 'Тип заявки', 'Инициатор', 'Что сделать', 'Сроки устранения',
-  'Фото заявки', 'Комментарии', 'Дата выполнения', 'Результат выполнения',
-  'Фото результата', 'Бар', 'Регион'
-];
-var TECH_EQUIPMENT_SPECIALIST_CHAT_ID = getProjectProperty_('TECH_EQUIPMENT_SPECIALIST_CHAT_ID');
-var BAR_TELEGRAM_RECIPIENTS = {};
-
-try {
-  BAR_TELEGRAM_RECIPIENTS = JSON.parse(getProjectProperty_('BAR_TELEGRAM_RECIPIENTS_JSON', '{}')) || {};
-} catch (e) {
-  Logger.log('Ошибка чтения BAR_TELEGRAM_RECIPIENTS_JSON: ' + e.toString());
-  BAR_TELEGRAM_RECIPIENTS = {};
-}
-
-// Один раз запустите setupProjectProperties_() после переноса проекта,
-// затем заполните созданные свойства в Apps Script -> Настройки проекта -> Свойства скрипта.
-function setupProjectProperties_() {
-  var props = PropertiesService.getScriptProperties();
-  var defaults = {
-    TARGET_FOLDER_ID: '',
-    TASKS_SPREADSHEET_ID: '',
-    REGIONS_SPREADSHEET_ID: '',
-    MOSCOW_SPREADSHEET_ID: '',
-    TELEGRAM_BOT_TOKEN: '',
-    TECH_EQUIPMENT_SPECIALIST_CHAT_ID: '',
-    BAR_TELEGRAM_RECIPIENTS_JSON: '{}',
-    INSTRUCTION_URL: ''
-  };
-  Object.keys(defaults).forEach(function(key) {
-    if (props.getProperty(key) === null) props.setProperty(key, defaults[key]);
-  });
-  getAuthSecret_();
-  Logger.log('Свойства проекта созданы. Заполните их в настройках проекта Apps Script.');
-}
-
-// Выдаёт токен обычного пользователя без отдельного экрана входа.
-// Подача заявок и просмотр задач остаются доступны как раньше.
-function getRequesterAuthToken() {
-  var users = getAuthUsers_();
-  var user = users.find(function(u) {
-    return String(u.login || '').toLowerCase() === 'requester' && u.enabled !== false;
-  });
-
-  if (!user) {
-    var randomPassword = Utilities.getUuid() + Utilities.getUuid();
-    setAuthUser_('requester', randomPassword, 'requester', 'Пользователь');
-    users = getAuthUsers_();
-    user = users.find(function(u) {
-      return String(u.login || '').toLowerCase() === 'requester' && u.enabled !== false;
-    });
-  }
-
-  return {
-    success: true,
-    token: makeAuthToken_(user),
-    user: { login: user.login, name: user.name || 'Пользователь', role: 'requester' }
-  };
-}
-
-// Совместимость с текущим интерфейсом: Index1 вызывает эту функцию
-// при нажатии на надпись «Пользователь».
+// ==========================================
+// ПАРОЛЬ АДМИНИСТРАТОРА
+// ==========================================
 function checkAdminPassword(password) {
-  try {
-    password = String(password || '');
-    if (!password) return false;
-    var result = authLogin('admin', password);
-    if (result && result.success && result.user && result.user.role === 'admin') {
-      return { success: true, token: result.token, user: result.user };
-    }
-    return { success: false };
-  } catch (e) {
-    Logger.log('Ошибка checkAdminPassword: ' + e.toString());
-    return false;
-  }
+  const CORRECT_PASSWORD = PropertiesService.getScriptProperties().getProperty("ADMIN_PASSWORD") || "admin123";
+  return password === CORRECT_PASSWORD;
 }
 
 /**
  * Вспомогательная функция для получения таблицы в зависимости от региона
  */
-function getSpreadsheetByRegion_(region) {
-  // После миграции регион больше НЕ определяет отдельную таблицу.
-  // Все задачи хранятся в одной таблице TASKS_SPREADSHEET_ID.
-  if (TASKS_SPREADSHEET_ID && TASKS_SPREADSHEET_ID.trim() !== '') {
-    return SpreadsheetApp.openById(TASKS_SPREADSHEET_ID.trim());
+function getSpreadsheetByRegion(region) {
+  if (region === "regions" || region === "Регионы") {
+    if (REGIONS_SPREADSHEET_ID && REGIONS_SPREADSHEET_ID !== "") {
+      try {
+        return SpreadsheetApp.openById(REGIONS_SPREADSHEET_ID);
+      } catch (e) {
+        Logger.log("Ошибка открытия таблицы регионов по ID: " + e.toString());
+      }
+    }
+  } else if (region === "moscow" || region === "Москва") {
+    if (MOSCOW_SPREADSHEET_ID && MOSCOW_SPREADSHEET_ID.trim() !== "") {
+      try {
+        return SpreadsheetApp.openById(MOSCOW_SPREADSHEET_ID);
+      } catch (e) {
+        Logger.log("Ошибка открытия таблицы Москвы по ID: " + e.toString());
+      }
+    }
   }
   return SpreadsheetApp.getActiveSpreadsheet();
 }
 
-function getTasksSheet_() {
-  const ss = getSpreadsheetByRegion_();
-  let sheet = ss.getSheetByName(TASKS_SHEET_NAME);
-  if (!sheet) {
-    sheet = ss.insertSheet(TASKS_SHEET_NAME);
-    sheet.getRange(1, 1, 1, TASKS_HEADERS.length).setValues([TASKS_HEADERS]);
-  } else if (sheet.getLastColumn() < TASKS_HEADERS.length) {
-    sheet.getRange(1, 1, 1, TASKS_HEADERS.length).setValues([TASKS_HEADERS]);
-  }
-  return sheet;
-}
-
 // ==========================================================
-// ЭКРАН 1: Фиксированный список баров
+// ЭКРАН 1: Получение списка листов с серверным кэшированием (CacheService)
 // ==========================================================
-function getBars(region, authToken) {
+function getBars(region) {
   try {
-    authRequire_(authToken, ['admin', 'requester']);
-    var normalizedRegion = String(region || 'moscow').toLowerCase();
-    var bars = FIXED_BARS.filter(function(barName) {
-      return getBarRegion_(barName) === normalizedRegion;
+    const regionKey = (region === "regions" || region === "Регионы") ? "regions" : "moscow";
+    const cacheKey = "bars_list_" + regionKey;
+    const cache = CacheService.getScriptCache();
+    const cached = cache.get(cacheKey);
+
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return { success: true, bars: parsed };
+        }
+      } catch (e) {}
+    }
+
+    const ss = getSpreadsheetByRegion(region);
+    const sheets = ss.getSheets();
+    const barNames = [];
+
+    sheets.forEach(sheet => {
+      const name = sheet.getName();
+      if (name !== "Справочник" && name !== "Настройки" && name !== "Шаблон") {
+        barNames.push(name);
+      }
     });
-    return { success: true, bars: bars };
+
+    if (barNames.length === 0) {
+      return { success: true, bars: ["Тестовый Бар"] };
+    }
+
+    // Сохраняем в кэш на 30 минут (1800 секунд)
+    try {
+      cache.put(cacheKey, JSON.stringify(barNames), 1800);
+    } catch (e) {}
+
+    return { success: true, bars: barNames };
   } catch (error) {
-    Logger.log('Ошибка в getBars: ' + error.toString());
+    Logger.log("Ошибка в getBars: " + error.toString());
     return { success: false, error: error.toString(), bars: [] };
   }
 }
 
 /**
- * Одноразовая миграция старых листов-баров из ТЕКУЩЕЙ (скопированной)
- * Google Таблицы в общий лист "Задачи".
- *
- * ВАЖНО:
- * - функция работает только с таблицей, к которой привязан ЭТОТ новый Apps Script;
- * - старые листы не удаляются и не изменяются;
- * - переносит только листы, названия которых есть в FIXED_BARS;
- * - в колонку "Бар" записывается каноническое название из FIXED_BARS;
- * - повторный запуск блокируется отдельным флагом миграции этой копии.
- *
- * Если в старой таблице была одна общая копия с историей, это именно тот
- * вариант, который нужен для тестового проекта.
+ * Универсальная функция для сохранения Base64 файла в папку на Google Диске
  */
-function migrateExistingBarSheetsToMaster() {
-  var lock = LockService.getScriptLock();
-  lock.waitLock(30000);
-
-  try {
-    var props = PropertiesService.getScriptProperties();
-    var migrationFlag = 'MASTER_MIGRATION_FROM_CURRENT_COPY_DONE';
-
-    if (props.getProperty(migrationFlag) === '1') {
-      return {
-        success: true,
-        message: 'Перенос из текущей копии уже выполнялся. Старые листы не изменялись.'
-      };
-    }
-
-    // Источник и приёмник — одна и та же НОВАЯ скопированная таблица.
-    var ss = SpreadsheetApp.getActiveSpreadsheet();
-    if (!ss) throw new Error('Не удалось определить текущую Google Таблицу.');
-
-    var master = ss.getSheetByName(TASKS_SHEET_NAME);
-    if (!master) {
-      master = ss.insertSheet(TASKS_SHEET_NAME);
-      master.getRange(1, 1, 1, TASKS_HEADERS.length).setValues([TASKS_HEADERS]);
-    } else if (master.getLastColumn() < TASKS_HEADERS.length) {
-      master.getRange(1, 1, 1, TASKS_HEADERS.length).setValues([TASKS_HEADERS]);
-    }
-
-    // Создаём соответствие "название листа -> название бара из FIXED_BARS".
-    // Пробелы по краям и регистр не мешают сопоставлению.
-    var barMap = {};
-    FIXED_BARS.forEach(function(barName) {
-      var canonical = String(barName || '').trim();
-      if (canonical) barMap[canonical.toLowerCase()] = canonical;
-    });
-
-    var sourceSheets = ss.getSheets();
-    var copied = 0;
-    var skipped = [];
-    var migratedBars = [];
-
-    sourceSheets.forEach(function(sheet) {
-      var sheetName = String(sheet.getName() || '').trim();
-      if (!sheetName || sheetName === TASKS_SHEET_NAME) return;
-
-      var canonicalBarName = barMap[sheetName.toLowerCase()];
-      if (!canonicalBarName) return;
-
-      var data = sheet.getDataRange().getValues();
-      if (data.length <= 1) {
-        skipped.push(sheetName + ' — нет строк с задачами');
-        return;
-      }
-
-      var rows = data.slice(1)
-        .filter(function(row) {
-          return row[0] || row[3];
-        })
-        .map(function(row) {
-          // Старые листы имеют 10 основных колонок.
-          // В новую структуру добавляем Бар и Регион.
-          return [
-            row[0] || '',  // Дата
-            row[1] || '',  // Тип заявки
-            row[2] || '',  // Инициатор
-            row[3] || '',  // Что сделать
-            row[4] || '',  // Сроки устранения
-            row[5] || '',  // Фото заявки
-            row[6] || '',  // Комментарии
-            row[7] || '',  // Дата выполнения
-            row[8] || '',  // Результат выполнения
-            row[9] || '',  // Фото результата
-            canonicalBarName, // Бар
-            getBarRegion_(canonicalBarName) // Регион
-          ];
-        });
-
-      if (!rows.length) {
-        skipped.push(sheetName + ' — подходящих задач нет');
-        return;
-      }
-
-      var firstRow = master.getLastRow() + 1;
-      master.getRange(firstRow, 1, rows.length, TASKS_HEADERS.length).setValues(rows);
-      copied += rows.length;
-      migratedBars.push(canonicalBarName + ': ' + rows.length);
-    });
-
-    // Ставим флаг только после успешного завершения переноса.
-    props.setProperty(migrationFlag, '1');
-
-    // Сбрасываем кэш, чтобы история появилась сразу после миграции.
-    clearTasksCache();
-
-    return {
-      success: true,
-      copied: copied,
-      bars: migratedBars,
-      skipped: skipped,
-      message: 'Перенос из текущей копии завершён. Старые листы не изменялись.'
-    };
-
-  } catch (e) {
-    Logger.log('Ошибка миграции из текущей копии: ' + e.toString());
-    return { success: false, error: e.toString() };
-  } finally {
-    lock.releaseLock();
-  }
-}
-
-/**
- * Универсальная функция для сохранения Base64 файла в конкретную папку на Google Диске по ID
- */
-function saveFileToTargetFolder_(fileData) {
+function saveFileToTargetFolder(fileData) {
   if (!fileData || !fileData.base64) return "";
 
   try {
@@ -521,204 +140,185 @@ function saveFileToTargetFolder_(fileData) {
   }
 }
 
-// Загрузка одного уже обработанного изображения.
-function uploadSingleFile(fileData, authToken) {
+/**
+ * Загрузка одного файла из браузера
+ */
+function uploadSingleFile(fileData) {
   try {
-    authRequire_(authToken, ['admin', 'requester']);
-    return saveFileToTargetFolder_(fileData);
-  } catch (e) {
-    Logger.log('Ошибка uploadSingleFile: ' + e.toString());
-    throw new Error(e.toString());
-  }
-}
-
-
-// Одноразово назначает регионы уже перенесённым задачам в листе "Задачи".
-// Запускать после изменения REGION_BARS, если миграция уже была выполнена.
-function assignRegionsToExistingTasks_() {
-  var lock = LockService.getScriptLock();
-  lock.waitLock(30000);
-  try {
-    var sheet = getTasksSheet_();
-    var lastRow = sheet.getLastRow();
-    if (lastRow < 2) return { success: true, updated: 0 };
-
-    var values = sheet.getRange(2, 11, lastRow - 1, 2).getValues();
-    var updated = 0;
-    values.forEach(function(row) {
-      var barName = String(row[0] || '').trim();
-      if (!barName) return;
-      var region = getBarRegion_(barName);
-      if (row[1] !== region) {
-        row[1] = region;
-        updated++;
-      }
-    });
-
-    if (values.length) sheet.getRange(2, 11, values.length, 2).setValues(values); // This is perfectly fine, it writes BOTH columns K and L back.
-    clearTasksCache();
-    return { success: true, updated: updated, message: 'Регионы назначены для существующих задач.' };
-  } catch (e) {
-    Logger.log('Ошибка assignRegionsToExistingTasks_: ' + e.toString());
-    return { success: false, error: e.toString() };
-  } finally {
-    lock.releaseLock();
+    return saveFileToTargetFolder(fileData);
+  } catch (error) {
+    return "";
   }
 }
 
 // ==========================================================
-// ЭКРАН 2: Создание новой заявки (Структура из 10 столбцов)
+// ЭКРАН 2: Создание новой заявки
 // ==========================================================
-function processForm(payload, authToken) {
+function processForm(payload) {
   try {
-    authRequire_(authToken, ['admin', 'requester']);
-    if (!payload || !FIXED_BARS.includes(payload.barName)) {
-      throw new Error('Неизвестный бар: ' + (payload && payload.barName ? payload.barName : ''));
+    const ss = getSpreadsheetByRegion(payload ? payload.region : null);
+    let sheet = ss.getSheetByName(payload.barName);
+
+    if (!sheet) {
+      sheet = ss.insertSheet(payload.barName);
+      sheet.appendRow(["Дата", "Тип заявки", "Инициатор", "Что сделать", "Сроки устранения", "Фото заявки", "Комментарии", "Дата выполнения", "Результат выполнения", "Фото результата"]);
+
+      // Сбрасываем кэш баров при создании нового листа
+      try {
+        const regionKey = (payload && (payload.region === "regions" || payload.region === "Регионы")) ? "regions" : "moscow";
+        CacheService.getScriptCache().remove("bars_list_" + regionKey);
+      } catch (e) {}
     }
 
-    const sheet = getTasksSheet_();
     const timestamp = new Date();
     const photoUrls = [];
 
-    const deadlineDate = parseRussianDate_(payload.deadline);
+    const deadlineDate = parseRussianDate(payload.deadline);
     if (!deadlineDate || isNaN(deadlineDate.getTime())) {
-      throw new Error('Некорректный срок устранения: ' + payload.deadline);
+      throw new Error("Некорректный срок устранения: " + payload.deadline);
     }
 
     if (payload.files && payload.files.length > 0) {
       for (var i = 0; i < payload.files.length; i++) {
-        if (typeof payload.files[i] === 'string') {
-          if (payload.files[i]) photoUrls.push(payload.files[i]);
-        } else if (payload.files[i] && payload.files[i].base64) {
-          var url = saveFileToTargetFolder_(payload.files[i]);
+        if (payload.files[i] && payload.files[i].base64) {
+          var url = saveFileToTargetFolder(payload.files[i]);
           if (url) photoUrls.push(url);
+        } else if (typeof payload.files[i] === 'string' && payload.files[i].startsWith('http')) {
+          // Если переданы уже готовые ссылки
+          photoUrls.push(payload.files[i]);
         }
       }
     }
 
-    let finalTaskText = payload.taskText;
-    if (payload.urgent) finalTaskText = '⚠️ [СРОЧНО] ' + finalTaskText;
+    const photosString = photoUrls.join(", ");
 
-    const lock = LockService.getScriptLock();
-    lock.waitLock(15000);
-    try {
-      sheet.appendRow([
-        timestamp,
-      payload.requestType,
-      payload.initiator,
-      finalTaskText,
-      deadlineDate,
-      photoUrls.join(', '),
-      '',
-      '',
-      '',
-      '',
-      payload.barName,
-        getBarRegion_(payload.barName)
-      ]);
-    } finally {
-      lock.releaseLock();
+    let finalTaskText = payload.taskText;
+    if (payload.urgent) {
+      finalTaskText = "⚠️ [СРОЧНО] " + finalTaskText;
     }
 
-    sendTelegramNotification_(payload);
-    clearTasksCache();
+    sheet.appendRow([
+      timestamp,           // А (1) - Дата подачи
+      payload.requestType, // Б (2) - Тип заявки
+      payload.initiator,   // В (3) - Инициатор
+      finalTaskText,       // Г (4) - Что сделать
+      deadlineDate,        // Д (5) - Сроки устранения
+      photosString,        // Е (6) - Фото заявки
+      "",                  // Ж (7) - Комментарии
+      "",                  // З (8) - Дата выполнения
+      "",                  // И (9) - Результат
+      ""                   // Й (10) - Фото результата
+    ]);
+
+    sendTelegramNotification(payload);
+    clearTasksCache(payload.region);
+
     return { success: true };
   } catch (error) {
-    Logger.log('Ошибка в processForm: ' + error.toString());
+    Logger.log("Ошибка в processForm: " + error.toString());
     return { success: false, error: error.toString() };
   }
 }
 
 // ==========================================================
-// ЭКРАН 3: Получение задач из одного общего листа
+// ЭКРАН 3: Получение всех задач
 // ==========================================================
-function getBarTasks(barName, region, authToken) {
+function getBarTasks(barName, region) {
   try {
-    authRequire_(authToken, ['admin', 'requester']);
-    if (barName !== 'ALL' && !FIXED_BARS.includes(barName)) {
-      return { success: false, error: 'Неизвестный бар.' };
-    }
-    const version = getCacheVersion_();
-    const cacheKey = 'tasks_master_' + (region || 'all') + '_' + barName + '_' + version;
-    const cache = CacheService.getScriptCache();
-    const cached = cache.get(cacheKey);
-    if (cached) {
-      return { success: true, tasks: JSON.parse(cached) };
+    const ss = getSpreadsheetByRegion(region);
+    let allTasks = [];
+
+    if (barName === "ALL") {
+      const barsRes = getBars(region);
+      const barsList = (barsRes && barsRes.bars) ? barsRes.bars : [];
+
+      barsList.forEach(bName => {
+        const sheet = ss.getSheetByName(bName);
+        if (sheet) {
+          const tasksFromBar = fetchTasksFromSheet(sheet, bName);
+          allTasks = allTasks.concat(tasksFromBar);
+        }
+      });
+    } else {
+      const sheet = ss.getSheetByName(barName);
+      if (sheet) {
+        allTasks = fetchTasksFromSheet(sheet, barName);
+      }
     }
 
-    const sheet = getTasksSheet_();
-    let tasks = fetchTasksFromSheet_(sheet, TASKS_SHEET_NAME);
-    if (barName !== 'ALL') tasks = tasks.filter(t => t.barName === barName);
-    if (region) tasks = tasks.filter(t => {
-      var taskRegion = String(t.region || '').toLowerCase();
-      if (!taskRegion && t.barName) {
-        taskRegion = getBarRegion_(t.barName).toLowerCase();
-      }
-      var requestedRegion = String(region).toLowerCase();
-      return taskRegion === requestedRegion;
-    });
-    tasks.reverse();
-    try { cache.put(cacheKey, JSON.stringify(tasks), 120); } catch (e) {}
-    return { success: true, tasks: tasks };
+    allTasks.reverse();
+    return { success: true, tasks: allTasks };
   } catch (error) {
     return { success: false, error: error.toString() };
   }
 }
 
-function fetchTasksFromSheet_(sheet, sheetName) {
+function fetchTasksFromSheet(sheet, sheetName) {
   const data = sheet.getDataRange().getValues();
   if (data.length <= 1) return [];
 
   const tasks = [];
   const now = new Date();
+
   for (let i = 1; i < data.length; i++) {
     const row = data[i];
     if (!row[0] && !row[3]) continue;
 
-    let pUrls = row[5] ? row[5].toString().split(',').map(u => u.trim()).filter(u => u !== '') : [];
-    const rawText = row[3] ? row[3].toString() : '';
-    const isUrgentText = rawText.includes('⚠️ [СРОЧНО]');
+    let pUrls = [];
+    if (row[5]) {
+      pUrls = row[5].toString().split(",").map(u => u.trim()).filter(u => u !== "");
+    }
 
-    // Handle the creation date (row[0]) correctly
-    const creationDate = row[0] instanceof Date ? row[0] : parseRussianDate_(row[0]);
-    const creationDateStr = creationDate
-      ? Utilities.formatDate(creationDate, Session.getScriptTimeZone(), 'dd.MM.yyyy HH:mm')
-      : (row[0] ? row[0].toString() : '');
+    const rawText = row[3] ? row[3].toString() : "";
+    const isUrgentText = rawText.includes("⚠️️ [СРОЧНО]");
 
-    const deadlineDate = row[4] instanceof Date ? row[4] : parseRussianDate_(row[4]);
+    const deadlineDate = row[4] instanceof Date ? row[4] : parseRussianDate(row[4]);
     const deadlineStr = deadlineDate
-      ? Utilities.formatDate(deadlineDate, Session.getScriptTimeZone(), 'dd.MM.yyyy HH:mm')
-      : (row[4] ? row[4].toString() : '');
-    const resultText = row[8] ? row[8].toString() : '';
-    const commentsText = row[6] ? row[6].toString() : '';
-    const isInWork = commentsText.includes('[В работе]');
-    const hasResult = resultText.trim() !== '';
-    const isOverdue = !hasResult && deadlineDate && deadlineDate < now;
+      ? Utilities.formatDate(deadlineDate, Session.getScriptTimeZone(), "dd.MM.yyyy HH:mm")
+      : (row[4] ? row[4].toString() : "");
+    const resultText = row[8] ? row[8].toString() : "";
+    const hasResult = resultText.trim() !== "";
+
+    const commentsText = row[6] ? row[6].toString() : "";
+    const isInWork = commentsText.includes("[В работе]");
+
+    let isOverdue = false;
+    if (!hasResult && deadlineDate && deadlineDate < now) {
+      isOverdue = true;
+    }
 
     const fixUrl = function(url) {
-      if (url.includes('id=')) return url;
-      if (url.includes('drive.google.com/file/d/')) {
-        var id = url.split('/file/d/')[1].split('/')[0];
-        return 'https://docs.google.com/uc?export=view&id=' + id;
+      if (url.includes("id=")) return url;
+      if (url.includes("drive.google.com/file/d/")) {
+        var id = url.split("/file/d/")[1].split("/")[0];
+        return "https://docs.google.com/uc?export=view&id=" + id;
       }
       return url;
     };
+
     const fixedPhotos = pUrls.map(fixUrl);
-    let fixedResultPhoto = '';
-    if (row[9]) fixedResultPhoto = row[9].toString().split(',').map(u => fixUrl(u.trim())).filter(u => u !== '').join(', ');
+
+    let fixedResultPhoto = "";
+    if (row[9]) {
+      fixedResultPhoto = row[9].toString().split(",")
+        .map(u => fixUrl(u.trim()))
+        .filter(u => u !== "")
+        .join(", ");
+    }
 
     tasks.push({
       rowIdx: i + 1,
-      barName: row[10] ? row[10].toString() : '',
-      region: row[11] ? row[11].toString() : '',
-      date: creationDateStr,
-      type: row[1] ? row[1].toString() : 'Общее',
-      initiator: row[2] ? row[2].toString() : 'Не указан',
+      barName: sheetName,
+      date: row[0] ? row[0].toString() : "",
+      type: row[1] ? row[1].toString() : "Общее",
+      initiator: row[2] ? row[2].toString() : "Не указан",
       text: rawText,
       deadline: deadlineStr,
       photos: fixedPhotos,
       comment: commentsText,
-      doneDate: row[7] instanceof Date ? Utilities.formatDate(row[7], Session.getScriptTimeZone(), 'dd.MM.yyyy HH:mm') : (row[7] ? row[7].toString() : ''),
+      doneDate: row[7] instanceof Date
+        ? Utilities.formatDate(row[7], Session.getScriptTimeZone(), "dd.MM.yyyy HH:mm")
+        : (row[7] ? row[7].toString() : ""),
       result: resultText,
       resultPhoto: fixedResultPhoto,
       urgent: isUrgentText,
@@ -726,158 +326,192 @@ function fetchTasksFromSheet_(sheet, sheetName) {
       inWork: isInWork
     });
   }
+
   return tasks;
 }
 
 // ==========================================================
-// ЭКРАН 3: Получение всех задач для конкретного бара или со ВСЕХ баров ("ALL")
+// СТАТИСТИКА
 // ==========================================================
-// ==========================================================
-// ОПЕРАЦИЯ: Сбор агрегированных данных для статистики
-// ==========================================================
-function getStatisticsData(region, authToken) {
+function getStatisticsData(region) {
+  const cacheKey = "stats_data_" + (region === "regions" || region === "Регионы" ? "regions" : "moscow");
+  const cache = CacheService.getScriptCache();
+  const cached = cache.get(cacheKey);
+
+  if (cached) {
+    return JSON.parse(cached);
+  }
+
   try {
-    authRequire_(authToken, ['admin', 'requester']);
-    const res = getBarTasks("ALL", region, authToken);
+    const res = getBarTasks("ALL", region);
     if (!res.success) return { success: false, error: res.error };
 
-    const barsRes = getBars(region, authToken);
+    const barsRes = getBars(region);
     const barsList = (barsRes && barsRes.bars) ? barsRes.bars : [];
 
-    return {
+    const result = {
       success: true,
       tasks: res.tasks,
       bars: barsList
     };
+
+    try {
+      cache.put(cacheKey, JSON.stringify(result), 300); // 5 minutes cache
+    } catch (e) {}
+
+    return result;
   } catch (e) {
     return { success: false, error: e.toString() };
   }
 }
 
 // ==========================================================
-// ОПЕРАЦИЯ: Взятие задачи в работу
+// ВЗЯТИЕ В РАБОТУ, КОММЕНТАРИИ И РЕЗУЛЬТАТ
 // ==========================================================
-function getTaskSheetAndCheckRow_(rowIdx) {
-  const sheet = getTasksSheet_();
-  if (!rowIdx || rowIdx < 2 || rowIdx > sheet.getLastRow()) throw new Error('Некорректная строка задачи.');
-  return sheet;
-}
-
-function takeTaskInWork(barName, rowIdx, region, authToken) {
+function takeTaskInWork(barName, rowIdx, region) {
   try {
-    authRequire_(authToken, ['admin', 'requester']);
-    const sheet = getTaskSheetAndCheckRow_(rowIdx);
-    if (String(sheet.getRange(rowIdx, 11).getValue()) !== String(barName)) return { success:false, error:'Задача не принадлежит выбранному бару.' };
+    const ss = getSpreadsheetByRegion(region);
+    const sheet = ss.getSheetByName(barName);
+    if (!sheet) return { success: false, error: "Лист не найден" };
+
     const cell = sheet.getRange(rowIdx, 7);
     const currentComment = cell.getValue().toString();
-    if (currentComment.includes('[В работе]')) return { success:true, alreadyInWork:true, updatedComment:currentComment };
-    const timestamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd.MM.yyyy HH:mm');
-    const formattedInWork = '[' + timestamp + ']: [В работе]';
-    const finalComment = currentComment.trim() === '' ? formattedInWork : currentComment + '\n' + formattedInWork;
+
+    if (currentComment.includes("[В работе]")) {
+      return { success: true, alreadyInWork: true, updatedComment: currentComment };
+    }
+
+    const timestamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd.MM.yyyy HH:mm");
+    const formattedInWork = "[" + timestamp + "]: [В работе]";
+
+    let finalComment = currentComment.trim() === "" ? formattedInWork : currentComment + "\n" + formattedInWork;
+
     cell.setValue(finalComment);
-    clearTasksCache();
-    return { success:true, updatedComment:finalComment };
-  } catch (error) { return { success:false, error:error.toString() }; }
+    clearTasksCache(region);
+    return { success: true, updatedComment: finalComment };
+  } catch (error) {
+    return { success: false, error: error.toString() };
+  }
 }
 
-function addTaskComment(barName, rowIdx, newCommentText, region, authToken) {
+function addTaskComment(barName, rowIdx, newCommentText, region) {
   try {
-    authRequire_(authToken, ['admin', 'requester']);
-    const sheet = getTaskSheetAndCheckRow_(rowIdx);
-    if (String(sheet.getRange(rowIdx, 11).getValue()) !== String(barName)) return { success:false, error:'Задача не принадлежит выбранному бару.' };
+    const ss = getSpreadsheetByRegion(region);
+    const sheet = ss.getSheetByName(barName);
+    if (!sheet) return { success: false, error: "Лист не найден" };
+
     const cell = sheet.getRange(rowIdx, 7);
     const currentComment = cell.getValue().toString();
-    const timestamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd.MM.yyyy HH:mm');
-    const formattedNewComment = '[' + timestamp + ']: ' + newCommentText;
-    const finalComment = currentComment.trim() === '' ? formattedNewComment : currentComment + '\n' + formattedNewComment;
+
+    const timestamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd.MM.yyyy HH:mm");
+    const formattedNewComment = "[" + timestamp + "]: " + newCommentText;
+
+    let finalComment = currentComment.trim() === "" ? formattedNewComment : currentComment + "\n" + formattedNewComment;
+
     cell.setValue(finalComment);
-    clearTasksCache();
-    return { success:true, updatedComment:finalComment };
-  } catch (error) { return { success:false, error:error.toString() }; }
+    clearTasksCache(region);
+    return { success: true, updatedComment: finalComment };
+  } catch (error) {
+    return { success: false, error: error.toString() };
+  }
 }
 
-function adminUpdateTask(taskRef, updates, filesData, authToken) {
+function addResultToTask(barName, rowIdx, resultText, filesData, region) {
   try {
-    authRequire_(authToken, ['admin']);
-    if (!taskRef || !taskRef.barName || !taskRef.rowIdx) return { success:false, error:'Не указана исходная задача.' };
-    updates = updates || {};
-    const sheet = getTaskSheetAndCheckRow_(taskRef.rowIdx);
-    if (String(sheet.getRange(taskRef.rowIdx, 11).getValue()) !== String(taskRef.barName)) return { success:false, error:'Исходная задача не найдена.' };
-    const oldRow = sheet.getRange(taskRef.rowIdx, 1, 1, 12).getValues()[0];
-    const targetBarName = updates.barName || taskRef.barName;
-    if (!FIXED_BARS.includes(targetBarName)) return { success:false, error:'Неизвестный бар.' };
+    const ss = getSpreadsheetByRegion(region);
+    const sheet = ss.getSheetByName(barName);
+    if (!sheet) return { success: false, error: "Лист не найден" };
 
-    const deadlineDate = parseRussianDate_(updates.deadline);
-    if (!deadlineDate || isNaN(deadlineDate.getTime())) return { success:false, error:'Некорректный срок устранения: ' + (updates.deadline || '') };
-    let taskText = String(updates.taskText || '').replace(/^\s*⚠️\s*\[СРОЧНО\]\s*/i, '');
-    const finalTaskText = updates.urgent ? '⚠️ [СРОЧНО] ' + taskText : taskText;
-
-    let photos = oldRow[5] ? oldRow[5].toString() : '';
-    if (Array.isArray(filesData)) {
-      const addedUrls = [];
-      filesData.forEach(function(f){ if (f && f.base64) { const u=saveFileToTargetFolder_(f); if(u) addedUrls.push(u); } });
-      if (addedUrls.length) photos = photos ? photos + ', ' + addedUrls.join(', ') : addedUrls.join(', ');
-    }
-
-    let comment = oldRow[6];
-    if (updates.commentText !== undefined) {
-      comment = updates.commentText;
-    }
-
-    const newRow = [oldRow[0], updates.requestType || oldRow[1], updates.initiator || oldRow[2], finalTaskText, deadlineDate, photos, comment, oldRow[7], oldRow[8], oldRow[9], targetBarName, updates.region || oldRow[11] || taskRef.region || ''];
-    sheet.getRange(taskRef.rowIdx, 1, 1, 12).setValues([newRow]);
-    clearTasksCache();
-    return { success:true, region:newRow[11], barName:targetBarName, rowIdx:taskRef.rowIdx };
-  } catch (error) { Logger.log('Ошибка adminUpdateTask: '+error.toString()); return {success:false,error:error.toString()}; }
-}
-
-function adminDeleteTask(barName, rowIdx, region, authToken) {
-  try {
-    authRequire_(authToken, ['admin']);
-    const sheet = getTaskSheetAndCheckRow_(rowIdx);
-    if (String(sheet.getRange(rowIdx,11).getValue()) !== String(barName)) return {success:false,error:'Задача не принадлежит выбранному бару.'};
-    sheet.deleteRow(rowIdx);
-    clearTasksCache();
-    return {success:true};
-  } catch(error){ return {success:false,error:error.toString()}; }
-}
-
-function adminCloseTask(barName, rowIdx, resultText, region, authToken) {
-  try {
-    authRequire_(authToken, ['admin']);
-    const sheet = getTaskSheetAndCheckRow_(rowIdx);
-    if (String(sheet.getRange(rowIdx,11).getValue()) !== String(barName)) return {success:false,error:'Задача не принадлежит выбранному бару.'};
-    const currentResult = sheet.getRange(rowIdx,9).getValue();
-    if (currentResult && currentResult.toString().trim() !== '') return {success:false,error:'Задача уже закрыта.'};
-    const finalResult = String(resultText || '').trim() || 'Закрыто администратором';
-    const nowFormatted = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd.MM.yyyy HH:mm');
-    sheet.getRange(rowIdx,8).setValue(nowFormatted);
-    sheet.getRange(rowIdx,9).setValue(finalResult);
-    clearTasksCache();
-    return {success:true,doneDate:nowFormatted,result:finalResult};
-  } catch(error){ return {success:false,error:error.toString()}; }
-}
-
-function addResultToTask(barName, rowIdx, resultText, filesData, region, authToken) {
-  try {
-    authRequire_(authToken, ['admin', 'requester']);
-    const sheet = getTaskSheetAndCheckRow_(rowIdx);
-    if (String(sheet.getRange(rowIdx,11).getValue()) !== String(barName)) return {success:false,error:'Задача не принадлежит выбранному бару.'};
     const resultPhotoUrls = [];
-    if (Array.isArray(filesData)) filesData.forEach(function(f){ if(typeof f==='string'){if(f)resultPhotoUrls.push(f);} else if(f&&f.base64){const u=saveFileToTargetFolder_(f);if(u)resultPhotoUrls.push(u);} });
-    else if(typeof filesData==='string' && filesData) resultPhotoUrls.push(filesData);
-    else if(filesData&&filesData.base64){const u=saveFileToTargetFolder_(filesData);if(u)resultPhotoUrls.push(u);}
-    const resultPhotosString = resultPhotoUrls.join(', ');
-    const nowFormatted = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd.MM.yyyy HH:mm');
-    sheet.getRange(rowIdx,8).setValue(nowFormatted);
-    sheet.getRange(rowIdx,9).setValue(resultText);
-    sheet.getRange(rowIdx,10).setValue(resultPhotosString);
-    clearTasksCache();
-    return {success:true,doneDate:nowFormatted,resultPhotoUrl:resultPhotosString};
-  } catch(error){ return {success:false,error:error.toString()}; }
+
+    if (Array.isArray(filesData)) {
+      for (var i = 0; i < filesData.length; i++) {
+        if (filesData[i] && filesData[i].base64) {
+          var url = saveFileToTargetFolder(filesData[i]);
+          if (url) resultPhotoUrls.push(url);
+        } else if (typeof filesData[i] === 'string' && filesData[i].startsWith('http')) {
+          resultPhotoUrls.push(filesData[i]);
+        }
+      }
+    } else if (filesData && filesData.base64) {
+      var url = saveFileToTargetFolder(filesData);
+      if (url) resultPhotoUrls.push(url);
+    }
+
+    const resultPhotosString = resultPhotoUrls.join(", ");
+    const nowFormatted = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd.MM.yyyy HH:mm");
+
+    sheet.getRange(rowIdx, 8, 1, 3).setValues([[nowFormatted, resultText, resultPhotosString]]);
+
+    clearTasksCache(region);
+    return { success: true, doneDate: nowFormatted, resultPhotoUrl: resultPhotosString };
+  } catch (error) {
+    return { success: false, error: error.toString() };
+  }
 }
 
-function parseRussianDate_(dateStr) {
+// ==========================================================
+// ФУНКЦИИ АДМИНИСТРАТОРА (РЕДАКТИРОВАНИЕ, УДАЛЕНИЕ, ЗАКРЫТИЕ)
+// ==========================================================
+function adminUpdateTask(barName, rowIdx, payload, region) {
+  try {
+    const ss = getSpreadsheetByRegion(region);
+    const sheet = ss.getSheetByName(barName);
+    if (!sheet) return { success: false, error: "Лист бара не найден" };
+
+    const deadlineDate = parseRussianDate(payload.deadline);
+    if (!deadlineDate || isNaN(deadlineDate.getTime())) {
+      return { success: false, error: "Некорректный срок: " + payload.deadline };
+    }
+
+    let finalTaskText = payload.taskText || "";
+    finalTaskText = finalTaskText.replace(/^⚠️\s*\[СРОЧНО\]\s*/, "").trim();
+    if (payload.urgent) {
+      finalTaskText = "⚠️ [СРОЧНО] " + finalTaskText;
+    }
+
+    sheet.getRange(rowIdx, 2, 1, 4).setValues([[payload.requestType, payload.initiator, finalTaskText, deadlineDate]]);
+
+    clearTasksCache(region);
+    return { success: true, updatedDeadline: Utilities.formatDate(deadlineDate, Session.getScriptTimeZone(), "dd.MM.yyyy HH:mm") };
+  } catch (error) {
+    return { success: false, error: error.toString() };
+  }
+}
+
+function adminDeleteTask(barName, rowIdx, region) {
+  try {
+    const ss = getSpreadsheetByRegion(region);
+    const sheet = ss.getSheetByName(barName);
+    if (!sheet) return { success: false, error: "Лист бара не найден" };
+
+    sheet.deleteRow(rowIdx);
+    clearTasksCache(region);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.toString() };
+  }
+}
+
+function adminCloseTask(barName, rowIdx, resultText, region) {
+  try {
+    const ss = getSpreadsheetByRegion(region);
+    const sheet = ss.getSheetByName(barName);
+    if (!sheet) return { success: false, error: "Лист бара не найден" };
+
+    const nowFormatted = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd.MM.yyyy HH:mm");
+    const finalResult = (resultText && resultText.trim() !== "") ? resultText.trim() : "Закрыто администратором";
+
+    sheet.getRange(rowIdx, 8, 1, 3).setValues([[nowFormatted, finalResult, ""]]);
+
+    clearTasksCache(region);
+    return { success: true, doneDate: nowFormatted, result: finalResult };
+  } catch (error) {
+    return { success: false, error: error.toString() };
+  }
+}
+
+function parseRussianDate(dateStr) {
   try {
     if (!dateStr) return null;
     if (dateStr instanceof Date) return new Date(dateStr.getTime());
@@ -914,9 +548,11 @@ function parseRussianDate_(dateStr) {
   }
 }
 
+// ==========================================================
+// БЫСТРЫЙ ВХОД ЧЕРЕЗ ШАБЛОНИЗАТОР С ПЕРЕДАЧЕЙ ПОЛЬЗОВАТЕЛЯ
+// ==========================================================
 function doGet() {
-  var template = HtmlService.createTemplateFromFile('Index');
-  template.instructionUrl = getProjectProperty_('INSTRUCTION_URL', '');
+  const template = HtmlService.createTemplateFromFile('Index');
   return template.evaluate()
       .setTitle('Управление задачами баров')
       .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
@@ -926,108 +562,141 @@ function doGet() {
 /**
  * Сбор сводной статистики и задач тех. оборудования по всем барам
  */
-/**
- * Обработчик POST-запросов от внешнего фронтенда.
- */
-function doPost(e) {
-  try {
-    var params = JSON.parse(e.postData.contents);
-    var action = params.action;
-    var args = params.args || [];
+function getTechEquipmentDashboardData(region) {
+  const cacheKey = "tech_dashboard_data_" + (region === "regions" || region === "Регионы" ? "regions" : "moscow");
+  const cache = CacheService.getScriptCache();
+  const cached = cache.get(cacheKey);
 
-    // Белый список разрешенных публичных методов
-    const PUBLIC_METHODS = {
-      processForm: processForm,
-      getBars: getBars,
-      getBarTasks: getBarTasks,
-      addTaskComment: addTaskComment,
-      takeTaskInWork: takeTaskInWork,
-      adminUpdateTask: adminUpdateTask,
-      adminDeleteTask: adminDeleteTask,
-      adminCloseTask: adminCloseTask,
-      addResultToTask: addResultToTask,
-      getStatisticsData: getStatisticsData,
-      getTechEquipmentDashboardData: getTechEquipmentDashboardData,
+  if (cached) {
+    return JSON.parse(cached);
+  }
 
-      getRequesterAuthToken: getRequesterAuthToken,
-      uploadSingleFile: uploadSingleFile,
-      checkAdminPassword: checkAdminPassword
-    };
+  const ss = getSpreadsheetByRegion(region);
+  const sheets = ss.getSheets();
+  const today = new Date();
 
-    // Запрещаем вызов функций не из списка
-    if (!PUBLIC_METHODS[action]) {
-      throw new Error("Функция не найдена или доступ запрещен: " + action);
+  const result = {
+    barsSummary: [],
+    barsDetails: {}
+  };
+
+  sheets.forEach(sheet => {
+    const sheetName = sheet.getName();
+
+    if (sheetName === 'Настройки' || sheetName === 'Шаблон' || sheetName === 'Справочник') return;
+
+    const data = sheet.getDataRange().getValues();
+    if (data.length <= 1) return;
+
+    let total = 0;
+    let active = 0;
+    let completed = 0;
+    let overdue = 0;
+
+    const barTechTasks = [];
+
+    for (let i = 1; i < data.length; i++) {
+      const row = data[i];
+      const dateStr = row[0];
+      const taskText = String(row[3] || '');
+      const deadlineDate = row[4] ? new Date(row[4]) : null;
+      const photoUrl = row[5];
+      const resultText = String(row[8] || '').trim();
+
+      total++;
+
+      let isCompleted = resultText !== '';
+      let isOverdue = !isCompleted && deadlineDate && deadlineDate < today;
+
+      if (isCompleted) {
+        completed++;
+      } else if (isOverdue) {
+        overdue++;
+      } else {
+        active++;
+      }
+
+      barTechTasks.push({
+        rowIndex: i + 1,
+        date: dateStr,
+        text: taskText,
+        deadline: row[4],
+        photoUrl: photoUrl,
+        status: isCompleted ? 'Выполнена' : (isOverdue ? 'Просрочена' : 'Активна')
+      });
     }
 
-    var result = PUBLIC_METHODS[action].apply(this, args);
-
-    return ContentService.createTextOutput(JSON.stringify({ result: result }))
-      .setMimeType(ContentService.MimeType.JSON);
-  } catch (err) {
-    return ContentService.createTextOutput(JSON.stringify({ error: err.toString() }))
-      .setMimeType(ContentService.MimeType.JSON);
-  }
-}
-
-function getTechEquipmentDashboardData(region, authToken) {
-  authRequire_(authToken, ['admin', 'requester']);
-  const tasks = getBarTasks('ALL', region, authToken).tasks || [];
-  const result = { barsSummary: [], barsDetails: {} };
-  FIXED_BARS.forEach(function(barName){
-    const barTasks = tasks.filter(t => t.barName === barName);
-    let active=0, completed=0, overdue=0;
-    barTasks.forEach(function(t){
-      if (t.result) completed++;
-      else if (t.overdue) overdue++;
-      else active++;
+    result.barsSummary.push({
+      barName: sheetName,
+      total: total,
+      active: active,
+      completed: completed,
+      overdue: overdue
     });
-    result.barsSummary.push({barName:barName,total:barTasks.length,active:active,completed:completed,overdue:overdue});
-    result.barsDetails[barName] = barTasks;
+
+    result.barsDetails[sheetName] = barTechTasks;
   });
+
+  try {
+    cache.put(cacheKey, JSON.stringify(result), 300); // Кэшируем на 5 минут
+  } catch (e) {}
+
   return result;
 }
 
-function getCacheVersion_() {
-  const props = PropertiesService.getScriptProperties();
-  let version = props.getProperty('TASKS_CACHE_VERSION_2');
-  if (!version) {
-    version = new Date().getTime().toString();
-    props.setProperty('TASKS_CACHE_VERSION_2', version);
-  }
-  return version;
-}
-
+/**
+ * Очистка кэша задач и статистики
+ */
 function clearTasksCache(region) {
   try {
-    const props = PropertiesService.getScriptProperties();
-    props.setProperty('TASKS_CACHE_VERSION_2', new Date().getTime().toString());
-    const cache = CacheService.getScriptCache();
-    cache.remove('stats_data_master');
-    cache.remove('tech_dashboard_data_master');
+    const regionKey = (region === "regions" || region === "Регионы") ? "regions" : "moscow";
+    CacheService.getScriptCache().remove("stats_data_" + regionKey);
+    CacheService.getScriptCache().remove("tech_dashboard_data_" + regionKey);
   } catch (e) {}
 }
 
-function sendTelegramNotification_(payload) {
+// ==========================================================
+// ФУНКЦИЯ ОТПРАВКИ УВЕДОМЛЕНИЙ В TELEGRAM
+// ==========================================================
+function sendTelegramNotification(payload) {
   try {
     if (!TELEGRAM_BOT_TOKEN) return;
 
-    let targetChatId = "";
+    // Исключаем уведомления для регионов, если это нужно (оставлено из вашей логики)
+    if (payload && (payload.region === "regions" || payload.region === "Регионы")) {
+      Logger.log("Уведомление пропущено: заявка из регионов.");
+      return;
+    }
 
+    // 1. Указываем ID администратора (или массив ID), кому ВСЕГДА дублировать
+    const ADMIN_CHAT_IDS = ["5460766895"];
+
+    // 2. Получаем ID ответственных за конкретный бар или за технику
+    let targetChatIds = [];
     const reqTypeLower = (payload.requestType || "").toLowerCase();
+
     if (reqTypeLower.indexOf("тех") !== -1) {
-      targetChatId = TECH_EQUIPMENT_SPECIALIST_CHAT_ID;
+      targetChatIds = [TECH_EQUIPMENT_SPECIALIST_CHAT_ID];
     } else {
-      targetChatId = BAR_TELEGRAM_RECIPIENTS[payload.barName] || BAR_TELEGRAM_RECIPIENTS["default"];
+      let barChat = BAR_TELEGRAM_RECIPIENTS[payload.barName] || BAR_TELEGRAM_RECIPIENTS["default"];
+      // Если ID указан строкой, превращаем в массив
+      targetChatIds = Array.isArray(barChat) ? barChat : [barChat];
     }
 
-    if (!targetChatId) {
-      targetChatId = TECH_EQUIPMENT_SPECIALIST_CHAT_ID;
-    }
+    // 3. ОБЪЕДИНЯЕМ массивы: ответственные + администраторы
+    let allRecipients = targetChatIds.concat(ADMIN_CHAT_IDS);
 
-    if (!targetChatId) return;
+    // Удаляем дубликаты (чтобы админу не пришло дважды, если он же указан как default)
+    allRecipients = allRecipients.filter(function(item, pos) {
+      return allRecipients.indexOf(item) == pos;
+    });
 
+    // 4. Формируем текст сообщения
     const regionText = (payload.region === "regions" || payload.region === "Регионы") ? "Регионы" : "Москва";
     const urgentBadge = payload.urgent ? "🚨 <b>[СРОЧНАЯ ЗАДАЧА]</b>\n" : "";
+
+    // Ссылка для открытия приложения (замените на вашу актуальную ссылку на GitHub или Google Script)
+    const appUrl = ScriptApp.getService().getUrl() || "https://ваш-сайт.github.io";
 
     const text = `${urgentBadge}` +
                  `🛠️ <b>Новая заявка: ${payload.barName} (${regionText})</b>\n\n` +
@@ -1036,23 +705,30 @@ function sendTelegramNotification_(payload) {
                  `👤 <b>Инициатор:</b> ${payload.initiator}\n` +
                  `⏰ <b>Дедлайн:</b> ${payload.deadline}\n\n` +
                  `📝 <b>Что сделать:</b>\n${payload.taskText}\n\n` +
-                 `🔗 <a href="${ScriptApp.getService().getUrl()}">Открыть приложение</a>`;
+                 `🔗 <a href="${appUrl}">Открыть приложение</a>`;
 
-    const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
+    // 5. Отправляем каждому получателю
+    allRecipients.forEach(function(chatId) {
+      if (!chatId) return; // Пропускаем пустые ID
 
-    UrlFetchApp.fetch(url, {
-      method: "post",
-      contentType: "application/json",
-      payload: JSON.stringify({
-        chat_id: targetChatId,
-        text: text,
-        parse_mode: "HTML",
-        disable_web_page_preview: true
-      }),
-      muteHttpExceptions: true
+      try {
+        UrlFetchApp.fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+          method: "post",
+          contentType: "application/json",
+          payload: JSON.stringify({
+            chat_id: chatId,
+            text: text,
+            parse_mode: "HTML",
+            disable_web_page_preview: true
+          }),
+          muteHttpExceptions: true
+        });
+      } catch (errInner) {
+        Logger.log("Ошибка отправки TG на ID " + chatId + ": " + errInner.toString());
+      }
     });
 
   } catch (err) {
-    Logger.log("Ошибка отправки в Telegram: " + err.toString());
+    Logger.log("Общая ошибка отправки в Telegram: " + err.toString());
   }
 }
