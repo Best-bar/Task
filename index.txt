@@ -413,7 +413,7 @@
         <span id="userAccountRoleBadge" onclick="promptAdminPassword()" style="background: rgba(10, 132, 255, 0.15); color: var(--accent-color); border: 1px solid var(--accent-color); padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer;">Пользователь</span>
       </div>
 
-      <a href="#" target="_blank" class="btn-instruction" id="instructionLink">
+      <a href="https://drive.google.com/file/d/1WhYDlMCyP7dqmg_hdLiUJAkvGCD4Dali/view?usp=sharing" target="_blank" class="btn-instruction">
         📖 Инструкция по подаче заявок
       </a>
       <h1>Выберите регион</h1>
@@ -785,11 +785,6 @@
       </div>
 
       <div class="form-group">
-        <label>Комментарий</label>
-        <textarea id="editTaskComment" rows="2" placeholder="Комментарий..."></textarea>
-      </div>
-
-      <div class="form-group">
         <label>Сроки и дата устранения (Дедлайн)</label>
         <input type="datetime-local" id="editDeadline" required>
       </div>
@@ -829,47 +824,8 @@
   </div>
 
   <script>
-
-    const APPS_SCRIPT_URL = "YOUR_APPS_SCRIPT_WEB_APP_URL_HERE";
-    const INSTRUCTION_URL_FALLBACK = "YOUR_INSTRUCTION_URL_HERE";
-
-    const google = {
-      script: {
-        get run() {
-          const state = { successHandler: null, failureHandler: null };
-          return new Proxy(state, {
-            get: function(target, prop) {
-              if (prop === 'withSuccessHandler') return function(cb) { target.successHandler = cb; return this; };
-              if (prop === 'withFailureHandler') return function(cb) { target.failureHandler = cb; return this; };
-              return async function(...args) {
-                try {
-                  const res = await fetch(APPS_SCRIPT_URL, {
-                    method: 'POST',
-                    body: JSON.stringify({ action: prop, args: args }),
-                    // Использование text/plain помогает избежать лишних preflight (OPTIONS) CORS запросов
-                    headers: { 'Content-Type': 'text/plain;charset=utf-8' }
-                  });
-                  const json = await res.json();
-                  if (json.error) {
-                    if (target.failureHandler) target.failureHandler(json.error);
-                    else console.error(json.error);
-                  } else {
-                    if (target.successHandler) target.successHandler(json.result);
-                  }
-                } catch (err) {
-                  if (target.failureHandler) target.failureHandler(err);
-                  else console.error(err);
-                }
-              };
-            }
-          });
-        }
-      }
-    };
-
     // Начальный пользователь по умолчанию - обычный
     let currentUser = { email: "", isAdmin: false, role: "requester" };
-    let currentAuthToken = "";
     let currentRegion = "moscow"; // 'moscow' или 'regions'
     let selectedFiles = [];
     let allTasksCached = [];
@@ -886,15 +842,12 @@
     const TASKS_PAGE_SIZE = 20;
 
     window.addEventListener('DOMContentLoaded', () => {
-      const instLink = document.getElementById('instructionLink');
-      if (instLink) instLink.href = INSTRUCTION_URL_FALLBACK;
       document.getElementById('regionScreen').style.display = 'block';
       document.getElementById('mainScreen').style.display = 'none';
       document.getElementById('fileInput').addEventListener('change', handleFileSelect);
       document.getElementById('requestForm').addEventListener('submit', sendData);
 
       updateUserUI();
-      initializeAuth();
       initLazyScrollListener();
 
       // Скрываем лоадер мгновенно, так как больше не ждем серверного ответа
@@ -919,11 +872,10 @@
       google.script.run
         .withSuccessHandler(function(isValid) {
           if(loader) loader.style.display = 'none';
-          if (isValid && isValid.success && isValid.token) {
-            currentAuthToken = isValid.token;
+          if (isValid) {
             currentUser.isAdmin = true;
             currentUser.role = 'admin';
-            currentUser.email = (isValid.user && (isValid.user.name || isValid.user.login)) || 'Администратор';
+            currentUser.email = 'Администратор';
             updateUserUI();
             alert("Права администратора успешно предоставлены.");
             if (document.getElementById('mainScreen').style.display === 'block') {
@@ -966,36 +918,7 @@
       }
     }
 
-    function initializeAuth(callback) {
-      if (currentAuthToken) {
-        if (callback) callback();
-        return;
-      }
-
-      google.script.run
-        .withSuccessHandler(function(res) {
-          if (res && res.success && res.token) {
-            currentAuthToken = res.token;
-            currentUser.email = (res.user && (res.user.name || res.user.login)) || '';
-            currentUser.role = 'requester';
-            currentUser.isAdmin = false;
-            updateUserUI();
-            if (callback) callback();
-          } else {
-            alert('Не удалось получить сессию пользователя.');
-          }
-        })
-        .withFailureHandler(function(err) {
-          alert('Ошибка авторизации: ' + err.toString());
-        })
-        .getRequesterAuthToken();
-    }
-
     function selectRegion(region) {
-      if (!currentAuthToken) {
-        initializeAuth(function() { selectRegion(region); });
-        return;
-      }
       currentRegion = region;
       const regionName = (region === 'moscow' || region === 'Москва') ? 'Москва' : 'Регионы';
 
@@ -1077,7 +1000,7 @@
     // Мгновенная загрузка баров: сначала из локального кэша, затем тихое обновление с сервера
     function loadBarsData(region) {
       const targetRegion = region || currentRegion;
-      const localCacheKey = 'cached_bars_v2_' + targetRegion;
+      const localCacheKey = 'cached_bars_' + targetRegion;
       const cachedBarsJson = localStorage.getItem(localCacheKey);
       let renderedFromCache = false;
 
@@ -1112,7 +1035,7 @@
             document.getElementById('mainLoader').innerText = '⚠️ Не удалось загрузить бары: ' + err.toString();
           }
         })
-        .getBars(targetRegion, currentAuthToken);
+        .getBars(targetRegion);
     }
 
     function proceedToHistory() {
@@ -1304,7 +1227,7 @@
             google.script.run
               .withSuccessHandler(res => resolve(res))
               .withFailureHandler(err => reject(err))
-              .uploadSingleFile(files[i], currentAuthToken);
+              .uploadSingleFile(files[i]);
           });
           if (url) uploadedUrls.push(url);
         } catch(e) { console.error("Upload failed for file", i, e); }
@@ -1364,7 +1287,7 @@
             if (submitBtn) submitBtn.disabled = false;
             alert("Критическая ошибка отправки: " + err.toString());
           })
-          .processForm(payload, currentAuthToken);
+          .processForm(payload);
       } catch (err) {
         if (loader) loader.style.display = 'none';
         if (submitBtn) submitBtn.disabled = false;
@@ -1537,7 +1460,7 @@
           document.getElementById('historyLoader').style.display = 'none';
           document.getElementById('tasksListContainer').innerHTML = '<div style="text-align:center; padding:15px; color:var(--danger-color);">Сбой связи: ' + err.toString() + '</div>';
         })
-        .getBarTasks(barTarget, currentRegion, currentAuthToken);
+        .getBarTasks(barTarget, currentRegion);
     }
 
     function applyFilters() {
@@ -1721,7 +1644,7 @@
           <div class="comment-history-list" id="commentList_${safeId}" style="${hasComment ? '' : 'display:none;'}">${task.comment || ''}</div>
           <div class="comment-box">
             <input type="text" id="commentInput_${safeId}" placeholder="Комментарий...">
-            <button type="button" id="btnCommentSubmit_${safeId}" class="btn-comment-submit" onclick="saveCommentOnly('${task.barName}', ${task.rowIdx}, '${safeId}')">ОК</button>
+            <button type="button" class="btn-comment-submit" onclick="saveCommentOnly('${task.barName}', ${task.rowIdx}, '${safeId}')">ОК</button>
           </div>
         </div>`;
 
@@ -1854,7 +1777,6 @@
 
     function saveCommentOnly(barName, rowIdx, safeId) {
       const input = document.getElementById(`commentInput_${safeId}`);
-      const submitBtn = document.getElementById(`btnCommentSubmit_${safeId}`);
       if (!input) return;
       const commentText = input.value.trim();
       if (!commentText) {
@@ -1862,19 +1784,10 @@
         return;
       }
 
-      if (submitBtn) {
-        submitBtn.disabled = true;
-        submitBtn.innerText = "Отправка";
-      }
-
       const commentList = document.getElementById(`commentList_${safeId}`);
 
       google.script.run
         .withSuccessHandler(function(response) {
-          if (submitBtn) {
-            submitBtn.disabled = false;
-            submitBtn.innerText = "ОК";
-          }
           if (response && response.success) {
             input.value = "";
             if (commentList) {
@@ -1891,13 +1804,9 @@
           }
         })
         .withFailureHandler(function(error) {
-          if (submitBtn) {
-            submitBtn.disabled = false;
-            submitBtn.innerText = "ОК";
-          }
           alert("Ошибка отправки: " + error.toString());
         })
-        .addTaskComment(barName, rowIdx, commentText, currentRegion, currentAuthToken);
+        .addTaskComment(barName, rowIdx, commentText, currentRegion);
     }
 
     function takeTaskInWorkAction(barName, rowIdx, safeId) {
@@ -1934,7 +1843,7 @@
             btn.innerText = "🛠️ Взять в работу";
           }
         })
-        .takeTaskInWork(barName, rowIdx, currentRegion, currentAuthToken);
+        .takeTaskInWork(barName, rowIdx, currentRegion);
     }
 
     async function submitTaskResult(barName, rowIdx, safeId) {
@@ -1982,7 +1891,7 @@
             if (isAllBarsMode) openHistoryForAllBars();
             else openHistoryForCurrentBar();
           })
-          .addResultToTask(barName, rowIdx, text, finalFiles, currentRegion, currentAuthToken);
+          .addResultToTask(barName, rowIdx, text, finalFiles, currentRegion);
       } catch(err) {
         alert("Ошибка: " + err.message);
       }
@@ -2002,7 +1911,6 @@
 
       let cleanText = (task.text || '').replace(/^⚠️\s*\[СРОЧНО\]\s*/, '').trim();
       document.getElementById('editTaskText').value = cleanText;
-      document.getElementById('editTaskComment').value = task.comment || '';
 
       document.getElementById('editDeadline').value = formatToInputDateTime(task.deadline);
       document.getElementById('editUrgentToggle').checked = !!task.urgent;
@@ -2065,7 +1973,6 @@
         requestType: document.getElementById('editRequestType').value,
         initiator: document.getElementById('editInitiator').value,
         taskText: taskText,
-        commentText: document.getElementById('editTaskComment').value,
         deadline: formatToRussianDateTime(deadlineValue),
         urgent: document.getElementById('editUrgentToggle').checked
       };
@@ -2081,7 +1988,6 @@
               t.type = payload.requestType;
               t.initiator = payload.initiator;
               t.text = payload.urgent ? ("⚠️ [СРОЧНО] " + payload.taskText) : payload.taskText;
-              t.comment = payload.commentText;
               t.deadline = res.updatedDeadline || payload.deadline;
               t.urgent = payload.urgent;
             }
@@ -2095,7 +2001,7 @@
           loader.style.display = 'none';
           alert("Ошибка отправки: " + err.toString());
         })
-        .adminUpdateTask({ barName: barName, rowIdx: rowIdx, region: currentRegion }, payload, [], currentAuthToken);
+        .adminUpdateTask(barName, rowIdx, payload, currentRegion);
     }
 
     function deleteTaskByAdminAction(barName, rowIdx) {
@@ -2111,7 +2017,7 @@
           }
         })
         .withFailureHandler(err => alert("Ошибка связи: " + err.toString()))
-        .adminDeleteTask(barName, rowIdx, currentRegion, currentAuthToken);
+        .adminDeleteTask(barName, rowIdx, currentRegion);
     }
 
     function closeTaskByAdminAction(barName, rowIdx) {
@@ -2133,7 +2039,7 @@
           }
         })
         .withFailureHandler(err => alert("Ошибка связи: " + err.toString()))
-        .adminCloseTask(barName, rowIdx, "Закрыто администратором", currentRegion, currentAuthToken);
+        .adminCloseTask(barName, rowIdx, "Закрыто администратором", currentRegion);
     }
 
     function openImageInLightbox(url) {
@@ -2214,7 +2120,7 @@
           document.getElementById('statsLoader').style.display = 'none';
           alert('Сбой связи при загрузке статистики: ' + err.toString());
         })
-        .getStatisticsData(currentRegion, currentAuthToken);
+        .getStatisticsData(currentRegion);
     }
 
     function populateStatsBarSelect(bars) {
