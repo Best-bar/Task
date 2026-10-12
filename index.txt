@@ -67,25 +67,25 @@
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       background: radial-gradient(circle at 50% 20%, #2c2c2e 0%, #1c1c1e 50%, #0a0a0c 100%);
-      color: var(--text-color);
-      margin: 0;
+      color: var(--text-color); 
+      margin: 0; 
       padding: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
+      display: flex; 
+      flex-direction: column; 
+      align-items: center; 
       -webkit-font-smoothing: antialiased;
-      height: 100vh;
+      height: 100vh; 
       overflow: hidden;
     }
 
-    .container {
-      width: 100%;
-      max-width: 600px;
-      height: 100%;
-      display: flex;
-      flex-direction: column;
+    .container { 
+      width: 100%; 
+      max-width: 600px; 
+      height: 100%; 
+      display: flex; 
+      flex-direction: column; 
     }
-
+    
     #regionScreen { padding: 15px; overflow-y: auto; height: 100%; box-sizing: border-box; }
     #mainScreen { padding: 15px; overflow-y: auto; height: 100%; box-sizing: border-box; display: none; }
     #formScreen { padding: 15px; overflow-y: auto; height: 100%; box-sizing: border-box; }
@@ -203,7 +203,7 @@
       display: none; height: 100vh; flex-direction: column; box-sizing: border-box; background: rgba(25,25,25,0.95);
       backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px);
     }
-
+    
     .history-header-fixed {
       padding: 6px 10px 2px 10px; border-bottom: 1px solid var(--card-border);
       background: rgba(25,25,25,0.5); flex-shrink: 0;
@@ -221,7 +221,7 @@
 
     .form-group { margin-bottom: 12px; }
     label { display: block; font-size: 11px; color: var(--text-secondary); margin-bottom: 3px; text-transform: uppercase; }
-
+    
     input[type="text"], input[type="date"], input[type="datetime-local"], select, textarea {
       width: 100%; box-sizing: border-box; background: rgba(255, 255, 255, 0.05);
       border: 1px solid var(--card-border); border-radius: 10px; padding: 10px;
@@ -254,8 +254,8 @@
     .filter-row { display: flex; gap: 4px; align-items: center; width: 100%; }
     .filter-row > div { flex: 1; display: flex; flex-direction: column; }
     .filter-row label { font-size: 8.5px; margin-bottom: 0px; letter-spacing: 0.2px; }
-
-    .filter-grid select, .filter-grid input[type="date"] {
+    
+    .filter-grid select, .filter-grid input[type="date"] { 
       padding: 2px 4px; font-size: 12px; height: 28px; border-radius: 5px; background: rgba(255, 255, 255, 0.04);
     }
     .short-date-row { max-width: 80%; margin: 0 auto; }
@@ -301,15 +301,15 @@
     .breakdown-row:last-child { border-bottom: none; }
 
     .task-item { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 10px; padding: 8px 10px; margin-bottom: 6px; font-size: 12.5px; transition: border-color 0.3s; }
-
+    
     .task-item.urgent-task {
       background: linear-gradient(135deg, rgba(255, 69, 58, 0.14) 0%, rgba(255, 69, 58, 0.04) 100%);
       border: 1.5px solid rgba(255, 69, 58, 0.5);
     }
-
-    .task-item.overdue-task {
+    
+    .task-item.overdue-task { 
       background: var(--overdue-bg) !important;
-      border: 1.5px solid var(--overdue-border) !important;
+      border: 1.5px solid var(--overdue-border) !important; 
       box-shadow: none !important;
     }
     .task-item.overdue-task .task-text { color: #d1d1d6; }
@@ -340,9 +340,9 @@
     .task-meta { margin-top: 3px; color: var(--text-secondary); line-height: 1.2; font-size: 11.5px; }
     .task-meta span { color: var(--text-color); }
     .task-photos-row { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px; }
-
-    .photo-link {
-      display: inline-flex; align-items: center; background: rgba(255, 255, 255, 0.06);
+    
+    .photo-link { 
+      display: inline-flex; align-items: center; background: rgba(255, 255, 255, 0.06); 
       border: 1px solid var(--card-border); padding: 4px 8px; border-radius: 6px;
       color: var(--accent-color); text-decoration: none; font-size: 11.5px; font-weight: 600; cursor: pointer;
     }
@@ -360,7 +360,7 @@
     .result-form-block { display: flex; flex-direction: column; gap: 5px; margin-top: 3px; }
     .result-input-row { display: flex; gap: 4px; }
     .result-input-row input { flex: 1; padding: 4px 8px; font-size: 12px; border-radius: 5px; background: rgba(255,255,255,0.04); border: 1px solid var(--card-border); color: #fff; height: 28px; box-sizing: border-box; }
-
+    
     .btn-res-photo { display: block; background: rgba(10, 132, 255, 0.1); border: 1px dashed var(--accent-color); color: var(--accent-color); padding: 6px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; text-align: center; }
     .btn-res-submit { background: var(--success-color); border: none; color: #fff; padding: 0 10px; border-radius: 5px; font-size: 12px; font-weight: 600; cursor: pointer; height: 28px; }
 
@@ -372,15 +372,15 @@
       background: rgba(0, 0, 0, 0.6); z-index: 9999; justify-content: center; align-items: center;
       backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
     }
-    .lightbox-content {
-      position: relative; width: 85%; max-width: 340px; background: #2c2c2e;
+    .lightbox-content { 
+      position: relative; width: 85%; max-width: 340px; background: #2c2c2e; 
       border-radius: 16px; padding: 12px; box-sizing: border-box;
       box-shadow: 0 12px 30px rgba(0,0,0,0.5); border: 1px solid var(--card-border);
       display: flex; flex-direction: column; align-items: center;
     }
-    .lightbox-close {
-      margin-top: 10px; background: rgba(255,255,255,0.08); color: var(--text-color);
-      border: 1px solid var(--card-border); border-radius: 8px; width: 100%; padding: 8px 0;
+    .lightbox-close { 
+      margin-top: 10px; background: rgba(255,255,255,0.08); color: var(--text-color); 
+      border: 1px solid var(--card-border); border-radius: 8px; width: 100%; padding: 8px 0; 
       font-size: 13px; font-weight: 600; cursor: pointer; text-align: center;
     }
     .lightbox-close:active { background: rgba(255,255,255,0.15); }
@@ -401,7 +401,7 @@
   </div>
 
   <div class="container">
-
+    
     <!-- ЭКРАН 0: ВЫБОР РЕГИОНА -->
     <div id="regionScreen">
       <!-- Баннер Google-аккаунта пользователя -->
@@ -417,7 +417,7 @@
         📖 Инструкция по подаче заявок
       </a>
       <h1>Выберите регион</h1>
-
+      
       <div class="region-grid">
         <button type="button" class="region-btn" onclick="selectRegion('moscow')">
           🏢 Москва
@@ -460,7 +460,7 @@
 
       <form id="requestForm">
         <input type="hidden" id="barNameInput" name="barName">
-
+        
         <div class="form-group">
           <label>Тип заявки</label>
           <select id="requestType" name="requestType" required>
@@ -486,7 +486,7 @@
           <label>Что необходимо сделать</label>
           <textarea id="taskText" name="taskText" placeholder="Описание проблемы..." required></textarea>
         </div>
-
+        
         <div class="form-group">
           <label>Сроки и дата устранения</label>
           <input type="datetime-local" id="deadline" name="deadline" required>
@@ -524,14 +524,14 @@
 
     <!-- ЭКРАН ИСТОРИИ ЗАДАЧ -->
     <div id="historyScreen" class="history-card">
-
+      
       <div class="history-header-fixed">
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
           <button type="button" class="btn-back" style="width: auto; padding: 4px 10px; margin: 0; color: var(--accent-color); border-color: rgba(10, 132, 255, 0.3); font-size: 12px;" onclick="goBackFromHistory()">← Назад</button>
         </div>
 
         <h2 id="historyBarTitle" style="margin: 0 0 3px 0;">История задач</h2>
-
+        
         <div class="filter-section">
           <div class="filter-grid">
             <div class="filter-row">
@@ -567,7 +567,7 @@
                 </select>
               </div>
             </div>
-
+            
             <div class="filter-row short-date-row">
               <div>
                 <label>Период С</label>
@@ -598,7 +598,7 @@
       <div class="history-footer-fixed">
         <button type="button" class="btn-back" onclick="goBackFromHistory()">Назад</button>
       </div>
-
+      
     </div>
 
     <!-- ЭКРАН СТАТИСТИКИ И АНАЛИТИКИ -->
@@ -609,7 +609,7 @@
         </div>
 
         <h2 id="statsTitle" style="margin: 0 0 5px 0; color: var(--warning-color);">📊 Аналитика и Статистика</h2>
-
+        
         <div class="filter-section">
           <div class="filter-grid">
             <div class="filter-row">
@@ -663,9 +663,9 @@
 
       <div class="history-scrollable-area">
         <div class="loading" id="statsLoader" style="display:block;">⏳ Расчет аналитики...</div>
-
+        
         <div id="statsContent" style="display:none;">
-
+          
           <div class="stats-grid-summary">
             <div class="stat-box" style="border-color: rgba(10, 132, 255, 0.4);">
               <div class="title">Всего задач</div>
@@ -737,15 +737,15 @@
   <div id="barActionModal" class="lightbox-overlay" onclick="closeBarActionModal()">
     <div class="lightbox-content" onclick="event.stopPropagation()" style="text-align: center;">
       <h3 id="modalBarTitle" style="margin: 0 0 15px 0; color: var(--text-color); font-size: 18px;"></h3>
-
+      
       <button type="button" class="btn-submit" style="margin-bottom: 10px;" onclick="proceedToForm()">
         📝 Подать заявку
       </button>
-
+      
       <button type="button" class="btn-history-inside" style="margin-bottom: 10px;" onclick="proceedToHistory()">
         📋 Посмотреть задачи бара (Техник ТО)
       </button>
-
+      
       <button type="button" class="btn-back" onclick="closeBarActionModal()">
         Отмена
       </button>
@@ -828,11 +828,11 @@
     let currentUser = { email: "", isAdmin: false, role: "requester" };
     let currentRegion = "moscow"; // 'moscow' или 'regions'
     let selectedFiles = [];
-    let allTasksCached = [];
+    let allTasksCached = []; 
     let loadedBarsList = [];
     let currentActiveBar = "";
     let isAllBarsMode = false;
-    let resultFilesCache = {};
+    let resultFilesCache = {}; 
     let currentOpenedImageUrl = "";
     let chartInstance = null;
 
@@ -849,7 +849,7 @@
 
       updateUserUI();
       initLazyScrollListener();
-
+      
       // Скрываем лоадер мгновенно, так как больше не ждем серверного ответа
       const loader = document.getElementById('initialAppLoader');
       if (loader) {
@@ -862,7 +862,7 @@
       if (currentUser.isAdmin) return;
       const pwd = prompt("Введите пароль администратора:");
       if (!pwd) return;
-
+      
       const loader = document.getElementById('initialAppLoader');
       if(loader) {
          loader.style.display = 'flex';
@@ -921,12 +921,12 @@
     function selectRegion(region) {
       currentRegion = region;
       const regionName = (region === 'moscow' || region === 'Москва') ? 'Москва' : 'Регионы';
-
+      
       document.getElementById('regionScreen').style.display = 'none';
       document.getElementById('mainScreen').style.display = 'block';
       document.getElementById('regionBadgeHeader').innerText = regionName;
       document.getElementById('mainScreenTitle').innerText = 'Выберите бар';
-
+      
       loadBarsData(region);
     }
 
@@ -942,19 +942,19 @@
       const urgentToggle = document.getElementById('urgentToggle');
       const currentTaskToggle = document.getElementById('currentTaskToggle');
       const deadlineInput = document.getElementById('deadline');
-
+      
       if (urgentToggle.checked) {
         if (currentTaskToggle) currentTaskToggle.checked = false;
 
         const now = new Date();
         const tomorrow = new Date(now.getTime() + (24 * 60 * 60 * 1000));
-
+        
         const year = tomorrow.getFullYear();
         const month = String(tomorrow.getMonth() + 1).padStart(2, '0');
         const day = String(tomorrow.getDate()).padStart(2, '0');
         const hours = String(tomorrow.getHours()).padStart(2, '0');
         const minutes = String(tomorrow.getMinutes()).padStart(2, '0');
-
+        
         deadlineInput.value = `${year}-${month}-${day}T${hours}:${minutes}`;
       } else {
         deadlineInput.value = '';
@@ -1047,7 +1047,7 @@
       document.getElementById('mainLoader').style.display = 'none';
       const container = document.getElementById('barsContainer');
       container.innerHTML = '';
-
+      
       let barsArray = [];
       if (Array.isArray(response)) {
         barsArray = response;
@@ -1213,7 +1213,7 @@
         if (submitBtn) submitBtn.disabled = false;
       }
     }
-
+    
     // Функция для асинхронной загрузки файлов по одному
     async function uploadFilesInBatches(files) {
       const uploadedUrls = [];
@@ -1221,7 +1221,7 @@
         // Обновляем текст кнопки
         const submitBtn = document.getElementById('submitBtn');
         if (submitBtn) submitBtn.textContent = `Загрузка фото (${i + 1} из ${files.length})...`;
-
+        
         try {
           const url = await new Promise((resolve, reject) => {
             google.script.run
@@ -1255,12 +1255,12 @@
         if (!deadlineValue) {
           throw new Error('Укажите срок устранения или включите «Текущая заявка» / «Срочная задача».');
         }
-
+        
         let finalFiles = selectedFiles;
         if (selectedFiles && selectedFiles.length > 0) {
           finalFiles = await uploadFilesInBatches(selectedFiles);
         }
-
+        
         if (submitBtn) submitBtn.textContent = 'Сохранение заявки...';
 
         const payload = {
@@ -1348,9 +1348,9 @@
 
     function formatDateTimeCustom(dateStr) {
       if (!dateStr) return 'Не указан';
-
+      
       let d = new Date(dateStr);
-
+      
       if (isNaN(d.getTime())) {
         const parts = dateStr.toString().trim().split(' ');
         if (parts[0] && parts[0].includes('.')) {
@@ -1365,13 +1365,13 @@
         }
         return dateStr;
       }
-
+      
       const day = String(d.getDate()).padStart(2, '0');
       const month = String(d.getMonth() + 1).padStart(2, '0');
       const year = d.getFullYear();
       const hours = String(d.getHours()).padStart(2, '0');
       const minutes = String(d.getMinutes()).padStart(2, '0');
-
+      
       return `${day}.${month}.${year} ${hours}:${minutes}`;
     }
 
@@ -1398,20 +1398,20 @@
 
     function isTaskOverdue(task) {
       const hasResult = task.result && task.result.trim() !== "";
-
+      
       if (hasResult) {
         if (!task.doneDate || !task.deadline) return false;
         const dDate = parseTaskDate(task.doneDate);
         const dlDate = parseTaskDate(task.deadline);
         if (!dDate || !dlDate) return false;
-
+        
         return (dDate.getTime() - dlDate.getTime()) >= 60000;
       }
-
+      
       if (!task.deadline) return false;
       const dlDate = parseTaskDate(task.deadline);
       if (!dlDate) return false;
-
+      
       const now = new Date();
       return (now.getTime() - dlDate.getTime()) >= 60000;
     }
@@ -1420,7 +1420,7 @@
       isAllBarsMode = false;
       document.getElementById('mainScreen').style.display = 'none';
       document.getElementById('formScreen').style.display = 'none';
-      document.getElementById('historyScreen').style.display = 'flex';
+      document.getElementById('historyScreen').style.display = 'flex'; 
       const regionLabel = currentRegion === 'regions' ? 'Регионы' : 'Москва';
       document.getElementById('historyBarTitle').innerText = "Задачи: " + currentActiveBar + " (" + regionLabel + ")";
       fetchHistoryData(currentActiveBar);
@@ -1430,7 +1430,7 @@
       isAllBarsMode = true;
       document.getElementById('mainScreen').style.display = 'none';
       document.getElementById('formScreen').style.display = 'none';
-      document.getElementById('historyScreen').style.display = 'flex';
+      document.getElementById('historyScreen').style.display = 'flex'; 
       const regionLabel = currentRegion === 'regions' ? 'Регионы' : 'Москва';
       document.getElementById('historyBarTitle').innerText = "Все задачи (Тех. отдел - " + regionLabel + ")";
       fetchHistoryData("ALL");
@@ -1439,19 +1439,19 @@
     function fetchHistoryData(barTarget) {
       document.getElementById('tasksListContainer').innerHTML = '';
       document.getElementById('historyLoader').style.display = 'block';
-      document.getElementById('filterDateFrom').value = '';
-      document.getElementById('filterDateTo').value = '';
+      document.getElementById('filterDateFrom').value = ''; 
+      document.getElementById('filterDateTo').value = ''; 
       document.getElementById('filterStatus').value = 'active';
-      document.getElementById('filterType').value = 'all';
+      document.getElementById('filterType').value = 'all'; 
       document.getElementById('filterInitiator').value = '';
-      resultFilesCache = {};
+      resultFilesCache = {}; 
 
       google.script.run
         .withSuccessHandler(function(response) {
           document.getElementById('historyLoader').style.display = 'none';
           if(response && response.success) {
             allTasksCached = response.tasks;
-            applyFilters();
+            applyFilters(); 
           } else {
             document.getElementById('tasksListContainer').innerHTML = '<div style="text-align:center; padding:15px;">Ошибка загрузки истории.</div>';
           }
@@ -1464,9 +1464,9 @@
     }
 
     function applyFilters() {
-      const selStatus = document.getElementById('filterStatus').value;
-      const dateFromVal = document.getElementById('filterDateFrom').value;
-      const dateToVal = document.getElementById('filterDateTo').value;
+      const selStatus = document.getElementById('filterStatus').value; 
+      const dateFromVal = document.getElementById('filterDateFrom').value; 
+      const dateToVal = document.getElementById('filterDateTo').value; 
       const selInit = document.getElementById('filterInitiator').value;
       const selType = document.getElementById('filterType').value;
 
@@ -1476,11 +1476,11 @@
       const filtered = allTasksCached.filter(task => {
         const hasResult = task.result && task.result.trim() !== "";
         const overdueNow = isTaskOverdue(task);
-
+        
         let mStatus = true;
-        if (selStatus === "active") mStatus = !hasResult;
+        if (selStatus === "active") mStatus = !hasResult;    
         if (selStatus === "inwork") mStatus = !hasResult && task.inWork;
-        if (selStatus === "completed") mStatus = hasResult;
+        if (selStatus === "completed") mStatus = hasResult;   
         if (selStatus === "overdue") mStatus = !hasResult && overdueNow;
         if (selStatus === "latedone") mStatus = hasResult && overdueNow;
 
@@ -1493,7 +1493,7 @@
           if (fromDate && tDate < fromDate) mPeriod = false;
           if (toDate && tDate > toDate) mPeriod = false;
         } else if (fromDate || toDate) { mPeriod = false; }
-
+        
         return mStatus && mInit && mType && mPeriod;
       });
 
@@ -1507,21 +1507,21 @@
           if (fromDate && tDate < fromDate) mPeriod = false;
           if (toDate && tDate > toDate) mPeriod = false;
         } else if (fromDate || toDate) { mPeriod = false; }
-
+        
         if (mInit && mType && mPeriod) {
           total++;
           const hasResult = task.result && task.result.trim() !== "";
           const overdueNow = isTaskOverdue(task);
-
+          
           if (hasResult) {
             completed++;
             if (overdueNow) {
               latedone++;
             }
           } else {
-            active++;
+            active++; 
             if (overdueNow) {
-              overdue++;
+              overdue++; 
             }
           }
         }
@@ -1561,7 +1561,7 @@
 
     function renderTasksListBatch(isAppend) {
       const container = document.getElementById('tasksListContainer');
-
+      
       if (!isAppend) {
         container.innerHTML = '';
       } else {
@@ -1602,16 +1602,16 @@
     }
 
     function createTaskElement(task, index) {
-      const item = document.createElement('div');
+      const item = document.createElement('div'); 
       const hasResult = task.result && task.result.trim() !== "";
       const overdueNow = isTaskOverdue(task);
       const safeId = (task.barName + '_' + task.rowIdx).replace(/[^a-zA-Z0-9_]/g, '_');
-
+      
       let classList = 'task-item';
       if (task.urgent) classList += ' urgent-task';
-      if (!hasResult && overdueNow) classList += ' overdue-task';
+      if (!hasResult && overdueNow) classList += ' overdue-task'; 
       item.className = classList;
-
+      
       let htmlPhotos = '';
       if(task.photos && task.photos.length > 0) {
         task.photos.forEach((url, pIdx) => {
@@ -1624,7 +1624,7 @@
         badgeHtml += `<span class="task-bar-badge" style="background:#ff9500; margin-right:4px;">${task.barName}</span>`;
       }
       if (task.urgent) badgeHtml += `<span class="urgent-badge-inline">Срочно</span>`;
-
+      
       if (hasResult) {
         if (overdueNow) {
           badgeHtml += `<span class="late-badge-inline">⚠️ Выполнено с опозданием</span>`;
@@ -1657,11 +1657,11 @@
         let resPhotoLink = '';
         if (task.resultPhoto && task.resultPhoto.trim() !== "") {
           const rPhotos = task.resultPhoto.split(",").map(u => u.trim()).filter(u => u !== "");
-          resPhotoLink = rPhotos.map((url, idx) =>
+          resPhotoLink = rPhotos.map((url, idx) => 
             `<div class="photo-link res-link" onclick="openImageInLightbox('${url}')">📸 Фото отчета ${rPhotos.length > 1 ? idx + 1 : ''}</div>`
           ).join('');
         }
-
+        
         const resultCardClass = overdueNow ? 'result-saved late-result' : 'result-saved';
         const overdueTextHeader = overdueNow ? '<b style="color:var(--late-done-color);">Результат (Сдано с опозданием):</b>' : '<b>Результат:</b>';
 
@@ -1852,14 +1852,14 @@
       if (!text) { alert("Пожалуйста, заполните текст результата."); return; }
 
       const fileData = resultFilesCache[rowIdx] || null;
-      if (!fileData || (Array.isArray(fileData) && fileData.length === 0)) {
-        alert("Прикрепите артефакт");
-        return;
+      if (!fileData || (Array.isArray(fileData) && fileData.length === 0)) { 
+        alert("Прикрепите артефакт"); 
+        return; 
       }
 
       const container = document.getElementById(`resBox_${safeId}`);
       container.innerHTML = '<div class="loading">⏳ Фиксация отчета...</div>';
-
+      
       try {
         let finalFiles = fileData;
         if (Array.isArray(fileData) && fileData.length > 0) {
@@ -1867,7 +1867,7 @@
           finalFiles = await uploadFilesInBatches(fileData);
         }
         container.innerHTML = '<div class="loading">⏳ Фиксация отчета...</div>';
-
+        
         google.script.run
           .withSuccessHandler(res => {
             if (res && res.success) {
@@ -1876,7 +1876,7 @@
                   t.result = text;
                   t.doneDate = res.doneDate;
                   t.resultPhoto = res.resultPhotoUrl;
-                  t.overdue = false;
+                  t.overdue = false; 
                 }
               });
               applyFilters();
@@ -2044,8 +2044,8 @@
 
     function openImageInLightbox(url) {
       if (!url) return;
-
-      currentOpenedImageUrl = url;
+      
+      currentOpenedImageUrl = url; 
 
       let fileId = '';
       if (url.includes('/file/d/')) {
@@ -2062,15 +2062,15 @@
       } else {
         const overlay = document.getElementById('lightboxOverlay');
         const iframe = document.getElementById('lightboxIframe');
-
-        iframe.src = '';
-
+        
+        iframe.src = ''; 
+        
         if (fileId) {
           iframe.src = `https://drive.google.com/file/d/${fileId}/preview`;
         } else {
           iframe.src = url;
         }
-
+        
         overlay.style.display = 'flex';
       }
     }
@@ -2095,7 +2095,7 @@
       document.getElementById('formScreen').style.display = 'none';
       document.getElementById('historyScreen').style.display = 'none';
       document.getElementById('statsScreen').style.display = 'flex';
-
+      
       const regionLabel = currentRegion === 'regions' ? 'Регионы' : 'Москва';
       document.getElementById('statsTitle').innerText = "📊 Аналитика (" + regionLabel + ")";
 
@@ -2137,7 +2137,7 @@
     function populateStatsTypeSelect(tasks) {
       const select = document.getElementById('statsTypeSelect');
       select.innerHTML = '<option value="ALL">Все типы</option>';
-
+      
       const typeSet = new Set();
       tasks.forEach(task => {
         if (task.type && task.type.toString().trim()) {
@@ -2156,7 +2156,7 @@
     function populateStatsMonthSelect(tasks) {
       const select = document.getElementById('statsMonthSelect');
       select.innerHTML = '<option value="ALL" selected>За все время</option>';
-
+      
       const monthMap = {};
       const russianMonths = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
 

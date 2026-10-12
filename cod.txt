@@ -17,7 +17,7 @@ var MOSCOW_SPREADSHEET_ID = "";
 const TELEGRAM_BOT_TOKEN = PropertiesService.getScriptProperties().getProperty("TELEGRAM_BOT_TOKEN") || ""; // Установите токен в свойствах скрипта
 
 // 2. Chat ID специалиста по Техническому Оборудованию (получает ВСЕ заявки с типом "Тех оборудование")
-const TECH_EQUIPMENT_SPECIALIST_CHAT_ID = "1451763750";
+const TECH_EQUIPMENT_SPECIALIST_CHAT_ID = "1451763750"; 
 
 // 3. Карта ответственных по барам (для всех остальных типов заявок)
 const BAR_TELEGRAM_RECIPIENTS = {
@@ -82,14 +82,14 @@ function getBars(region) {
     const ss = getSpreadsheetByRegion(region);
     const sheets = ss.getSheets();
     const barNames = [];
-
+    
     sheets.forEach(sheet => {
       const name = sheet.getName();
       if (name !== "Справочник" && name !== "Настройки" && name !== "Шаблон") {
         barNames.push(name);
       }
     });
-
+    
     if (barNames.length === 0) {
       return { success: true, bars: ["Тестовый Бар"] };
     }
@@ -98,7 +98,7 @@ function getBars(region) {
     try {
       cache.put(cacheKey, JSON.stringify(barNames), 1800);
     } catch (e) {}
-
+    
     return { success: true, bars: barNames };
   } catch (error) {
     Logger.log("Ошибка в getBars: " + error.toString());
@@ -111,10 +111,10 @@ function getBars(region) {
  */
 function saveFileToTargetFolder(fileData) {
   if (!fileData || !fileData.base64) return "";
-
+  
   try {
     var folder = DriveApp.getFolderById(TARGET_FOLDER_ID);
-
+    
     var contentType = fileData.type || "application/octet-stream";
     var fileName = fileData.name || (contentType === "image/heic" ? "photo.heic" : "photo");
 
@@ -128,12 +128,12 @@ function saveFileToTargetFolder(fileData) {
     var decode = Utilities.base64Decode(base64Part);
     var blob = Utilities.newBlob(decode, contentType, fileName);
     var file = folder.createFile(blob);
-
+    
     file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-
+    
     var fileId = file.getId();
     return "https://docs.google.com/uc?export=view&id=" + fileId;
-
+    
   } catch (e) {
     Logger.log("Ошибка при сохранении файла на Диск: " + e.toString());
     throw new Error("Не удалось сохранить файл на Google Диск: " + e.toString());
@@ -158,11 +158,11 @@ function processForm(payload) {
   try {
     const ss = getSpreadsheetByRegion(payload ? payload.region : null);
     let sheet = ss.getSheetByName(payload.barName);
-
+    
     if (!sheet) {
       sheet = ss.insertSheet(payload.barName);
       sheet.appendRow(["Дата", "Тип заявки", "Инициатор", "Что сделать", "Сроки устранения", "Фото заявки", "Комментарии", "Дата выполнения", "Результат выполнения", "Фото результата"]);
-
+      
       // Сбрасываем кэш баров при создании нового листа
       try {
         const regionKey = (payload && (payload.region === "regions" || payload.region === "Регионы")) ? "regions" : "moscow";
@@ -191,7 +191,7 @@ function processForm(payload) {
     }
 
     const photosString = photoUrls.join(", ");
-
+    
     let finalTaskText = payload.taskText;
     if (payload.urgent) {
       finalTaskText = "⚠️ [СРОЧНО] " + finalTaskText;
@@ -231,7 +231,7 @@ function getBarTasks(barName, region) {
     if (barName === "ALL") {
       const barsRes = getBars(region);
       const barsList = (barsRes && barsRes.bars) ? barsRes.bars : [];
-
+      
       barsList.forEach(bName => {
         const sheet = ss.getSheetByName(bName);
         if (sheet) {
@@ -271,12 +271,12 @@ function fetchTasksFromSheet(sheet, sheetName) {
 
     const rawText = row[3] ? row[3].toString() : "";
     const isUrgentText = rawText.includes("⚠️️ [СРОЧНО]");
-
+    
     const deadlineDate = row[4] instanceof Date ? row[4] : parseRussianDate(row[4]);
     const deadlineStr = deadlineDate
       ? Utilities.formatDate(deadlineDate, Session.getScriptTimeZone(), "dd.MM.yyyy HH:mm")
       : (row[4] ? row[4].toString() : "");
-    const resultText = row[8] ? row[8].toString() : "";
+    const resultText = row[8] ? row[8].toString() : "";  
     const hasResult = resultText.trim() !== "";
 
     const commentsText = row[6] ? row[6].toString() : "";
@@ -297,7 +297,7 @@ function fetchTasksFromSheet(sheet, sheetName) {
     };
 
     const fixedPhotos = pUrls.map(fixUrl);
-
+    
     let fixedResultPhoto = "";
     if (row[9]) {
       fixedResultPhoto = row[9].toString().split(",")
@@ -337,15 +337,15 @@ function getStatisticsData(region) {
   const cacheKey = "stats_data_" + (region === "regions" || region === "Регионы" ? "regions" : "moscow");
   const cache = CacheService.getScriptCache();
   const cached = cache.get(cacheKey);
-
+  
   if (cached) {
     return JSON.parse(cached);
   }
-
+  
   try {
     const res = getBarTasks("ALL", region);
     if (!res.success) return { success: false, error: res.error };
-
+    
     const barsRes = getBars(region);
     const barsList = (barsRes && barsRes.bars) ? barsRes.bars : [];
 
@@ -376,16 +376,16 @@ function takeTaskInWork(barName, rowIdx, region) {
 
     const cell = sheet.getRange(rowIdx, 7);
     const currentComment = cell.getValue().toString();
-
+    
     if (currentComment.includes("[В работе]")) {
       return { success: true, alreadyInWork: true, updatedComment: currentComment };
     }
 
     const timestamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd.MM.yyyy HH:mm");
     const formattedInWork = "[" + timestamp + "]: [В работе]";
-
+    
     let finalComment = currentComment.trim() === "" ? formattedInWork : currentComment + "\n" + formattedInWork;
-
+    
     cell.setValue(finalComment);
     clearTasksCache(region);
     return { success: true, updatedComment: finalComment };
@@ -402,12 +402,12 @@ function addTaskComment(barName, rowIdx, newCommentText, region) {
 
     const cell = sheet.getRange(rowIdx, 7);
     const currentComment = cell.getValue().toString();
-
+    
     const timestamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd.MM.yyyy HH:mm");
     const formattedNewComment = "[" + timestamp + "]: " + newCommentText;
-
+    
     let finalComment = currentComment.trim() === "" ? formattedNewComment : currentComment + "\n" + formattedNewComment;
-
+    
     cell.setValue(finalComment);
     clearTasksCache(region);
     return { success: true, updatedComment: finalComment };
@@ -423,7 +423,7 @@ function addResultToTask(barName, rowIdx, resultText, filesData, region) {
     if (!sheet) return { success: false, error: "Лист не найден" };
 
     const resultPhotoUrls = [];
-
+    
     if (Array.isArray(filesData)) {
       for (var i = 0; i < filesData.length; i++) {
         if (filesData[i] && filesData[i].base64) {
@@ -566,15 +566,15 @@ function getTechEquipmentDashboardData(region) {
   const cacheKey = "tech_dashboard_data_" + (region === "regions" || region === "Регионы" ? "regions" : "moscow");
   const cache = CacheService.getScriptCache();
   const cached = cache.get(cacheKey);
-
+  
   if (cached) {
     return JSON.parse(cached);
   }
-
+  
   const ss = getSpreadsheetByRegion(region);
   const sheets = ss.getSheets();
   const today = new Date();
-
+  
   const result = {
     barsSummary: [],
     barsDetails: {}
@@ -582,7 +582,7 @@ function getTechEquipmentDashboardData(region) {
 
   sheets.forEach(sheet => {
     const sheetName = sheet.getName();
-
+    
     if (sheetName === 'Настройки' || sheetName === 'Шаблон' || sheetName === 'Справочник') return;
 
     const data = sheet.getDataRange().getValues();
@@ -592,7 +592,7 @@ function getTechEquipmentDashboardData(region) {
     let active = 0;
     let completed = 0;
     let overdue = 0;
-
+    
     const barTechTasks = [];
 
     for (let i = 1; i < data.length; i++) {
@@ -674,7 +674,7 @@ function sendTelegramNotification(payload) {
     // 2. Получаем ID ответственных за конкретный бар или за технику
     let targetChatIds = [];
     const reqTypeLower = (payload.requestType || "").toLowerCase();
-
+    
     if (reqTypeLower.indexOf("тех") !== -1) {
       targetChatIds = [TECH_EQUIPMENT_SPECIALIST_CHAT_ID];
     } else {
@@ -685,7 +685,7 @@ function sendTelegramNotification(payload) {
 
     // 3. ОБЪЕДИНЯЕМ массивы: ответственные + администраторы
     let allRecipients = targetChatIds.concat(ADMIN_CHAT_IDS);
-
+    
     // Удаляем дубликаты (чтобы админу не пришло дважды, если он же указан как default)
     allRecipients = allRecipients.filter(function(item, pos) {
       return allRecipients.indexOf(item) == pos;
@@ -710,7 +710,7 @@ function sendTelegramNotification(payload) {
     // 5. Отправляем каждому получателю
     allRecipients.forEach(function(chatId) {
       if (!chatId) return; // Пропускаем пустые ID
-
+      
       try {
         UrlFetchApp.fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
           method: "post",
